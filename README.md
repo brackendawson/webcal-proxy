@@ -1,7 +1,7 @@
 # webcal-proxy
 A simple server to proxy and filter webcal links.
 
-## Usage
+## Usage
 ### Server
 Usage of webcal-proxy:
 * -addr string
