@@ -19,11 +19,29 @@ func TestRegexFilter(t *testing.T) {
 		want          []byte
 		wantStatus    int
 	}{
-		"filter": {
+		"default": {
 			source:     []byte(calExample),
-			options:    "&match=SUMMARY=Rotation",
+			options:    "",
+			wantStatus: 200,
+			want:       []byte(calExample),
+		},
+		"includeRotation": {
+			source:     []byte(calExample),
+			options:    "&inc=SUMMARY=Rotation",
 			wantStatus: 200,
 			want:       []byte(calOnlyRotation),
+		},
+		"excludeSecondary": {
+			source:     []byte(calExample),
+			options:    "&exc=SUMMARY=Secondary",
+			wantStatus: 200,
+			want:       []byte(calWithoutSecondary),
+		},
+		"includeExclude": {
+			source:     []byte(calExample),
+			options:    `&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
+			wantStatus: 200,
+			want:       []byte(calMay22NotRotation),
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -44,6 +62,8 @@ func TestRegexFilter(t *testing.T) {
 			wantCal, err := ics.ParseCalendar(bytes.NewReader(test.want))
 			require.NoError(t, err)
 			assert.Equal(t, []byte(wantCal.Serialize()), w.Body.Bytes())
+			t.Logf("want:\n%s", wantCal.Serialize())
+			t.Logf("got:\n%s", string(w.Body.Bytes()))
 		})
 	}
 }
