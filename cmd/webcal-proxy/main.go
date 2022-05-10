@@ -12,11 +12,13 @@ import (
 
 func main() {
 	var (
+		addr     string
 		logFile  string
 		logLevel string
 	)
 	flag.StringVar(&logFile, "logfile", "", "File to log to")
 	flag.StringVar(&logLevel, "loglevel", "info", "log level")
+	flag.StringVar(&addr, "addr", "0.0.0.0:80", "local address:port to bind to")
 	flag.Parse()
 
 	level, err := logrus.ParseLevel(logLevel)
@@ -39,5 +41,5 @@ func main() {
 	s := server.Server{}
 
 	http.HandleFunc("/", s.HandleWebcal)
-	http.ListenAndServe("0.0.0.0:80", nil)
+	logrus.Error(http.ListenAndServe(addr, nil))
 }
