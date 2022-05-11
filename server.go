@@ -16,9 +16,16 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	defaultMaxConns = 8
+)
+
 type Server struct {
-	Client        *http.Client
-	clientOnce    sync.Once
+	Client     *http.Client
+	MaxConns   int
+	semaphore  chan struct{}
+	clientOnce sync.Once
+
 	allowLoopback bool
 }
 
@@ -28,10 +35,19 @@ func (s *Server) clientInit() {
 			Timeout: time.Minute,
 		}
 	}
+
+	maxConns := s.MaxConns
+	if maxConns < 1 {
+		maxConns = defaultMaxConns
+	}
+	s.semaphore = make(chan struct{}, maxConns)
 }
 
 func (s *Server) fetch(url string) (*ics.Calendar, error) {
 	s.clientOnce.Do(s.clientInit)
+
+	s.semaphore <- struct{}{}
+	defer func() { <-s.semaphore }()
 
 	upstream, err := s.Client.Get(url)
 	if err != nil {
