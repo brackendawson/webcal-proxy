@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -16,8 +17,9 @@ import (
 )
 
 type Server struct {
-	Client     *http.Client
-	clientOnce sync.Once
+	Client        *http.Client
+	clientOnce    sync.Once
+	allowLoopback bool
 }
 
 func (s *Server) clientInit() {
@@ -65,15 +67,32 @@ func (s *Server) HandleWebcal(w http.ResponseWriter, r *http.Request) {
 	upstreamURLString, err := url.QueryUnescape(upstreamURLString)
 	if err != nil {
 		log.Error("Invalid cal param: ", upstreamURLString)
-		http.Error(w, "Invalid calender url", http.StatusBadRequest)
+		http.Error(w, "Invalid calendar url", http.StatusBadRequest)
 		return
 	}
 
 	upstreamURL, err := url.Parse(upstreamURLString)
 	if err != nil {
 		log.Error("Invalid url: ", err)
-		http.Error(w, "Invalid calender url", http.StatusBadRequest)
+		http.Error(w, "Invalid calendar url", http.StatusBadRequest)
 		return
+	}
+
+	addrs, err := net.LookupHost(upstreamURL.Hostname())
+	if err != nil {
+		log.Error("Failed to lookup host: ", err)
+		http.Error(w, "Failed to fetch calendar: "+err.Error(), http.StatusBadGateway)
+		return
+	}
+	for _, addr := range addrs {
+		ip := net.ParseIP(addr)
+		switch {
+		case s.allowLoopback && ip.IsLoopback():
+		case !ip.IsGlobalUnicast() || ip.IsPrivate():
+			log.Error("Denied access to private address: ", ip.String())
+			http.Error(w, "Invalid calendar url", http.StatusBadRequest)
+			return
+		}
 	}
 
 	log.Info("Fetching: ", upstreamURL.String())
