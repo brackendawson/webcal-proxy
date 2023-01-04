@@ -16,6 +16,7 @@ import (
 func TestRegexFilter(t *testing.T) {
 	for name, test := range map[string]struct {
 		source        []byte
+		tryRedirect   bool
 		options       string
 		allowLoopback bool
 		wantSourceURL string
@@ -83,9 +84,19 @@ func TestRegexFilter(t *testing.T) {
 			allowLoopback: true,
 			wantStatus:    400,
 		},
+		"redirect": {
+			tryRedirect:   true,
+			options:       `?cal=webcal://CALURL`,
+			allowLoopback: true,
+			wantStatus:    400,
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if test.tryRedirect {
+					http.Redirect(w, r, "192.168.0.1", http.StatusMovedPermanently)
+					return
+				}
 				w.Header().Set("Content-Type", "text/calendar")
 				w.Write(test.source)
 			}))

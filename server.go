@@ -21,6 +21,10 @@ const (
 	defaultMaxConns = 8
 )
 
+var (
+	errNoRedirect = errors.New("redirect is not allowed")
+)
+
 type Server struct {
 	MaxConns   int
 	semaphore  chan struct{}
@@ -52,6 +56,9 @@ func (s *Server) fetch(url, address string) (*ics.Calendar, error) {
 				addr = address + addr[strings.LastIndex(addr, ":"):]
 				return dialer.DialContext(ctx, network, addr)
 			},
+		},
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return errNoRedirect
 		},
 	}
 
@@ -131,6 +138,11 @@ func (s *Server) HandleWebcal(w http.ResponseWriter, r *http.Request) {
 
 	upstream, err := s.fetch(upstreamURL.String(), ip.String())
 	if err != nil {
+		if errors.Is(err, errNoRedirect) {
+			log.Error("request attempted to redirect")
+			http.Error(w, "Invalid calendar url", http.StatusBadRequest)
+			return
+		}
 		log.Errorf("Failed to fetch %q: %s", upstreamURL.String(), err)
 		http.Error(w, "Failed to fetch calendar: "+err.Error(), http.StatusBadGateway)
 		return
