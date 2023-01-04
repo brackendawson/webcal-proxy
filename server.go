@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -21,7 +22,6 @@ const (
 )
 
 type Server struct {
-	Client     *http.Client
 	MaxConns   int
 	semaphore  chan struct{}
 	clientOnce sync.Once
@@ -30,12 +30,6 @@ type Server struct {
 }
 
 func (s *Server) clientInit() {
-	if s.Client == nil {
-		s.Client = &http.Client{
-			Timeout: time.Minute,
-		}
-	}
-
 	maxConns := s.MaxConns
 	if maxConns < 1 {
 		maxConns = defaultMaxConns
@@ -43,13 +37,25 @@ func (s *Server) clientInit() {
 	s.semaphore = make(chan struct{}, maxConns)
 }
 
-func (s *Server) fetch(url string) (*ics.Calendar, error) {
+// fetch fetches the given url from the given IP address
+func (s *Server) fetch(url, address string) (*ics.Calendar, error) {
 	s.clientOnce.Do(s.clientInit)
 
 	s.semaphore <- struct{}{}
 	defer func() { <-s.semaphore }()
 
-	upstream, err := s.Client.Get(url)
+	dialer := &net.Dialer{}
+	client := &http.Client{
+		Timeout: time.Minute,
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				addr = address + addr[strings.LastIndex(addr, ":"):]
+				return dialer.DialContext(ctx, network, addr)
+			},
+		},
+	}
+
+	upstream, err := client.Get(url)
 	if err != nil {
 		return nil, err
 	}
@@ -100,8 +106,9 @@ func (s *Server) HandleWebcal(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to fetch calendar: "+err.Error(), http.StatusBadGateway)
 		return
 	}
+	var ip net.IP
 	for _, addr := range addrs {
-		ip := net.ParseIP(addr)
+		ip = net.ParseIP(addr)
 		switch {
 		case s.allowLoopback && ip.IsLoopback():
 		case !ip.IsGlobalUnicast() || ip.IsPrivate():
@@ -122,7 +129,7 @@ func (s *Server) HandleWebcal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	upstream, err := s.fetch(upstreamURL.String())
+	upstream, err := s.fetch(upstreamURL.String(), ip.String())
 	if err != nil {
 		log.Errorf("Failed to fetch %q: %s", upstreamURL.String(), err)
 		http.Error(w, "Failed to fetch calendar: "+err.Error(), http.StatusBadGateway)
