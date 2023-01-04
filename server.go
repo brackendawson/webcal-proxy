@@ -116,6 +116,12 @@ func (s *Server) HandleWebcal(w http.ResponseWriter, r *http.Request) {
 	if upstreamURL.Scheme == "webcal" {
 		upstreamURL.Scheme = "http"
 	}
+	if upstreamURL.Scheme != "http" && upstreamURL.Scheme != "https" {
+		log.Error("Wrong protocol scheme for calendar: ", upstreamURL.Scheme)
+		http.Error(w, "Invalid calendar url", http.StatusBadRequest)
+		return
+	}
+
 	upstream, err := s.fetch(upstreamURL.String())
 	if err != nil {
 		log.Errorf("Failed to fetch %q: %s", upstreamURL.String(), err)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -23,28 +24,28 @@ func TestRegexFilter(t *testing.T) {
 	}{
 		"default": {
 			source:        []byte(calExample),
-			options:       "?cal=CALURL",
+			options:       "?cal=http://CALURL",
 			allowLoopback: true,
 			wantStatus:    200,
 			want:          []byte(calExample),
 		},
 		"includeRotation": {
 			source:        []byte(calExample),
-			options:       "?cal=CALURL&inc=SUMMARY=Rotation",
+			options:       "?cal=http://CALURL&inc=SUMMARY=Rotation",
 			allowLoopback: true,
 			wantStatus:    200,
 			want:          []byte(calOnlyRotation),
 		},
 		"excludeSecondary": {
 			source:        []byte(calExample),
-			options:       "?cal=CALURL&exc=SUMMARY=Secondary",
+			options:       "?cal=http://CALURL&exc=SUMMARY=Secondary",
 			allowLoopback: true,
 			wantStatus:    200,
 			want:          []byte(calWithoutSecondary),
 		},
 		"includeExclude": {
 			source:        []byte(calExample),
-			options:       `?cal=CALURL&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
+			options:       `?cal=http://CALURL&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
 			allowLoopback: true,
 			wantStatus:    200,
 			want:          []byte(calMay22NotRotation),
@@ -69,6 +70,19 @@ func TestRegexFilter(t *testing.T) {
 			options:    `?cal=http://localhost:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
 			wantStatus: 400,
 		},
+		"webcal": {
+			source:        []byte(calExample),
+			options:       `?cal=webcal://CALURL`,
+			allowLoopback: true,
+			wantStatus:    200,
+			want:          []byte(calExample),
+		},
+		"ftp": {
+			source:        []byte(calExample),
+			options:       `?cal=ftp://CALURL`,
+			allowLoopback: true,
+			wantStatus:    400,
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -77,7 +91,9 @@ func TestRegexFilter(t *testing.T) {
 			}))
 			defer ts.Close()
 
-			url := "http://localhost" + strings.Replace(test.options, "CALURL", ts.URL, 1)
+			tsURL, err := url.Parse(ts.URL)
+			require.NoError(t, err)
+			url := "http://localhost" + strings.Replace(test.options, "CALURL", tsURL.Host, 1)
 			t.Log(url)
 			r := httptest.NewRequest("GET", url, nil)
 			w := httptest.NewRecorder()
