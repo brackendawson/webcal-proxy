@@ -119,6 +119,7 @@ func TestRegexFilter(t *testing.T) {
 				wantCal, err := ics.ParseCalendar(bytes.NewReader(test.want))
 				require.NoError(t, err)
 				assert.Equal(t, []byte(wantCal.Serialize()), w.Body.Bytes())
+				assert.Equal(t, "text/calendar", w.Header().Get("Content-Type"))
 				t.Logf("want:\n%s", wantCal.Serialize())
 				t.Logf("got:\n%s", string(w.Body.Bytes()))
 			}
