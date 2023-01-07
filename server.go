@@ -104,7 +104,7 @@ func (s *Server) HandleWebcal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/calendar")
-	downstream.SerializeTo(w)
+	_ = downstream.SerializeTo(w)
 
 	log.Infof("Served %d/%d events", len(downstream.Events()), len(upstream.Events()))
 }

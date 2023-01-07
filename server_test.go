@@ -113,7 +113,7 @@ func TestRegexFilter(t *testing.T) {
 					return
 				}
 				w.Header().Set("Content-Type", "text/calendar")
-				w.Write(test.source)
+				_, _ = w.Write(test.source)
 			}))
 			defer ts.Close()
 
@@ -137,7 +137,7 @@ func TestRegexFilter(t *testing.T) {
 				assert.Equal(t, []byte(wantCal.Serialize()), w.Body.Bytes())
 				assert.Equal(t, "text/calendar", w.Header().Get("Content-Type"))
 				t.Logf("want:\n%s", wantCal.Serialize())
-				t.Logf("got:\n%s", string(w.Body.Bytes()))
+				t.Logf("got:\n%s", w.Body.String())
 			}
 		})
 	}
