@@ -65,5 +65,5 @@ func publicUnicastOnlyDialContext(ctx context.Context, network, addr string) (ne
 		}
 	}
 
-	return nil, fmt.Errorf("failed to dial any address in %q", ipAddrs)
+	return nil, fmt.Errorf("failed to dial port %q on any address in %q", port, ipAddrs)
 }
