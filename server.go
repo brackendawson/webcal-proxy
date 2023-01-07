@@ -71,17 +71,6 @@ func (s *Server) HandleWebcal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Info("Fetching: ", upstreamURL)
-	upstream, err := s.fetch(upstreamURL)
-	if err != nil {
-		log.Errorf("Failed to fetch %q: %s", upstreamURL, err)
-		http.Error(w, "Failed to fetch calendar: "+err.Error(), http.StatusBadGateway)
-		return
-	}
-
-	downstream := ics.NewCalendar()
-	downstream.CalendarProperties = upstream.CalendarProperties
-
 	includes, err := parseMatchers(r.URL.Query()["inc"])
 	if err != nil {
 		log.Errorf("Bad inc %q: %s", r.URL.Query()["inc"], err)
@@ -98,6 +87,16 @@ func (s *Server) HandleWebcal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Info("Fetching: ", upstreamURL)
+	upstream, err := s.fetch(upstreamURL)
+	if err != nil {
+		log.Errorf("Failed to fetch %q: %s", upstreamURL, err)
+		http.Error(w, "Failed to fetch calendar: "+err.Error(), http.StatusBadGateway)
+		return
+	}
+
+	downstream := ics.NewCalendar()
+	downstream.CalendarProperties = upstream.CalendarProperties
 	for _, event := range upstream.Events() {
 		if includes.matches(event) && !excludes.matches(event) {
 			downstream.AddVEvent(event)
