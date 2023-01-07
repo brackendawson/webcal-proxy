@@ -91,7 +91,7 @@ func (s *Server) HandleWebcal(w http.ResponseWriter, r *http.Request) {
 	upstream, err := s.fetch(upstreamURL)
 	if err != nil {
 		log.Errorf("Failed to fetch %q: %s", upstreamURL, err)
-		http.Error(w, "Failed to fetch calendar: "+err.Error(), http.StatusBadGateway)
+		http.Error(w, "Failed to fetch calendar.", http.StatusBadGateway)
 		return
 	}
 
