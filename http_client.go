@@ -49,11 +49,14 @@ func publicUnicastOnlyDialContext(ctx context.Context, network, addr string) (ne
 		}
 	}
 
+	var dialErrs []error
 	connectTimeout := requestTimeoutSecs * time.Second / time.Duration(len(ipAddrs)+1)
 	for _, ipAddr := range ipAddrs {
+		ip = net.ParseIP(ipAddr)
 		switch {
 		case allowLoopback && ip.IsLoopback():
 		case !ip.IsGlobalUnicast() || ip.IsPrivate():
+			dialErrs = append(dialErrs, fmt.Errorf("forbidden address: %s", ipAddr))
 			continue
 		}
 
@@ -63,7 +66,8 @@ func publicUnicastOnlyDialContext(ctx context.Context, network, addr string) (ne
 		if nil == err {
 			return conn, nil
 		}
+		dialErrs = append(dialErrs, fmt.Errorf("failed to dial '%s:%s': %w", ipAddr, port, err))
 	}
 
-	return nil, fmt.Errorf("failed to dial port %q on any address in %q", port, ipAddrs)
+	return nil, fmt.Errorf("failed to dial: %q", dialErrs)
 }
