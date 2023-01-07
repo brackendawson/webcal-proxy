@@ -30,6 +30,12 @@ func TestRegexFilter(t *testing.T) {
 			wantStatus:    200,
 			want:          []byte(calExample),
 		},
+		"no-cal": {
+			source:        []byte(calExample),
+			options:       "?not=right",
+			allowLoopback: true,
+			wantStatus:    400,
+		},
 		"includeRotation": {
 			source:        []byte(calExample),
 			options:       "?cal=http://CALURL&inc=SUMMARY=Rotation",
@@ -54,22 +60,27 @@ func TestRegexFilter(t *testing.T) {
 		"local": {
 			source:     []byte(calExample),
 			options:    `?cal=http://127.0.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			wantStatus: 400,
+			wantStatus: 502,
 		},
 		"private": {
 			source:     []byte(calExample),
 			options:    `?cal=http://192.168.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			wantStatus: 400,
+			wantStatus: 502,
 		},
 		"vpn": {
 			source:     []byte(calExample),
 			options:    `?cal=http://10.0.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			wantStatus: 400,
+			wantStatus: 502,
 		},
 		"localhost": {
 			source:     []byte(calExample),
 			options:    `?cal=http://localhost:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			wantStatus: 400,
+			wantStatus: 502,
+		},
+		"no-port-localhost": {
+			source:     []byte(calExample),
+			options:    `?cal=http://localhost&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
+			wantStatus: 502,
 		},
 		"webcal": {
 			source:        []byte(calExample),
@@ -88,7 +99,11 @@ func TestRegexFilter(t *testing.T) {
 			tryRedirect:   true,
 			options:       `?cal=webcal://CALURL`,
 			allowLoopback: true,
-			wantStatus:    400,
+			wantStatus:    502,
+		},
+		"unresolvable": {
+			options:    "?cal=webcal://not.a.domain",
+			wantStatus: 502,
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -109,9 +124,10 @@ func TestRegexFilter(t *testing.T) {
 			r := httptest.NewRequest("GET", url, nil)
 			w := httptest.NewRecorder()
 
-			s := Server{
-				allowLoopback: test.allowLoopback,
-			}
+			defer func(prev bool) { allowLoopback = prev }(allowLoopback)
+			allowLoopback = test.allowLoopback
+
+			s := Server{}
 			s.HandleWebcal(w, r)
 
 			assert.Equal(t, test.wantStatus, w.Code)

@@ -1,16 +1,13 @@
 package server
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
 	"sync"
-	"time"
 
 	ics "github.com/arran4/golang-ical"
 	"github.com/google/uuid"
@@ -21,16 +18,10 @@ const (
 	defaultMaxConns = 8
 )
 
-var (
-	errNoRedirect = errors.New("redirect is not allowed")
-)
-
 type Server struct {
 	MaxConns   int
 	semaphore  chan struct{}
 	clientOnce sync.Once
-
-	allowLoopback bool
 }
 
 func (s *Server) clientInit() {
@@ -42,25 +33,11 @@ func (s *Server) clientInit() {
 }
 
 // fetch fetches the given url from the given IP address
-func (s *Server) fetch(url, address string) (*ics.Calendar, error) {
+func (s *Server) fetch(url string) (*ics.Calendar, error) {
 	s.clientOnce.Do(s.clientInit)
 
 	s.semaphore <- struct{}{}
 	defer func() { <-s.semaphore }()
-
-	dialer := &net.Dialer{}
-	client := &http.Client{
-		Timeout: time.Minute,
-		Transport: &http.Transport{
-			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				addr = address + addr[strings.LastIndex(addr, ":"):]
-				return dialer.DialContext(ctx, network, addr)
-			},
-		},
-		CheckRedirect: func(*http.Request, []*http.Request) error {
-			return errNoRedirect
-		},
-	}
 
 	upstream, err := client.Get(url)
 	if err != nil {
@@ -107,24 +84,6 @@ func (s *Server) HandleWebcal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	addrs, err := net.LookupHost(upstreamURL.Hostname())
-	if err != nil {
-		log.Error("Failed to lookup host: ", err)
-		http.Error(w, "Failed to fetch calendar: "+err.Error(), http.StatusBadGateway)
-		return
-	}
-	var ip net.IP
-	for _, addr := range addrs {
-		ip = net.ParseIP(addr)
-		switch {
-		case s.allowLoopback && ip.IsLoopback():
-		case !ip.IsGlobalUnicast() || ip.IsPrivate():
-			log.Error("Denied access to private address: ", ip.String())
-			http.Error(w, "Invalid calendar url", http.StatusBadRequest)
-			return
-		}
-	}
-
 	log.Info("Fetching: ", upstreamURL.String())
 
 	if upstreamURL.Scheme == "webcal" {
@@ -136,13 +95,8 @@ func (s *Server) HandleWebcal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	upstream, err := s.fetch(upstreamURL.String(), ip.String())
+	upstream, err := s.fetch(upstreamURL.String())
 	if err != nil {
-		if errors.Is(err, errNoRedirect) {
-			log.Error("request attempted to redirect")
-			http.Error(w, "Invalid calendar url", http.StatusBadRequest)
-			return
-		}
 		log.Errorf("Failed to fetch %q: %s", upstreamURL.String(), err)
 		http.Error(w, "Failed to fetch calendar: "+err.Error(), http.StatusBadGateway)
 		return
