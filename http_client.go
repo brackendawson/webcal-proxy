@@ -9,15 +9,21 @@ import (
 	"time"
 )
 
+const (
+	requestTimeoutSecs = 60
+)
+
 var (
 	dialer = &net.Dialer{}
 	client = &http.Client{
-		Timeout: time.Minute,
+		Timeout: requestTimeoutSecs * time.Second,
 		Transport: &http.Transport{
 			DialContext: publicUnicastOnlyDialContext,
 		},
 		CheckRedirect: noRedirect,
 	}
+	resolver = &net.Resolver{}
+
 	allowLoopback = false
 )
 
@@ -30,24 +36,34 @@ func publicUnicastOnlyDialContext(ctx context.Context, network, addr string) (ne
 	if err != nil {
 		return nil, err
 	}
+
 	ip := net.ParseIP(host)
-	if ip == nil {
-		ipAddrs, err := net.LookupHost(host)
+
+	var ipAddrs []string
+	if ip != nil {
+		ipAddrs = append(ipAddrs, ip.String())
+	} else {
+		ipAddrs, err = resolver.LookupHost(ctx, host)
 		if err != nil {
 			return nil, fmt.Errorf("failed to lookup host: %w", err)
 		}
-		for _, ipAddr := range ipAddrs {
-			ip = net.ParseIP(ipAddr)
-			if ip != nil {
-				break
-			}
-		}
-	}
-	switch {
-	case allowLoopback && ip.IsLoopback():
-	case !ip.IsGlobalUnicast() || ip.IsPrivate():
-		return nil, fmt.Errorf("denied access to unsafe address: %s", ip.String())
 	}
 
-	return dialer.DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
+	connectTimeout := requestTimeoutSecs * time.Second / time.Duration(len(ipAddrs)+1)
+	for _, ipAddr := range ipAddrs {
+		switch {
+		case allowLoopback && ip.IsLoopback():
+		case !ip.IsGlobalUnicast() || ip.IsPrivate():
+			continue
+		}
+
+		connCtx, cancel := context.WithTimeout(ctx, connectTimeout)
+		conn, err := dialer.DialContext(connCtx, network, net.JoinHostPort(ipAddr, port))
+		cancel()
+		if nil == err {
+			return conn, nil
+		}
+	}
+
+	return nil, fmt.Errorf("failed to dial any address in %q", ipAddrs)
 }
