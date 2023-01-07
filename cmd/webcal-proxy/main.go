@@ -18,7 +18,7 @@ func main() {
 	)
 	flag.StringVar(&logFile, "logfile", "", "File to log to")
 	flag.StringVar(&logLevel, "loglevel", "info", "log level")
-	flag.StringVar(&addr, "addr", "0.0.0.0:80", "local address:port to bind to")
+	flag.StringVar(&addr, "addr", ":80", "local address:port to bind to")
 	flag.Parse()
 
 	level, err := logrus.ParseLevel(logLevel)

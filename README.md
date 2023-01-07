@@ -5,7 +5,7 @@ A simple server to proxy and filter webcal links.
 ### Server
 Usage of webcal-proxy:
 * -addr string
-local address:port to bind to (default "0.0.0.0:80")
+local address:port to bind to (default ":80")
 * -logfile string
 File to log to
 * -loglevel string
