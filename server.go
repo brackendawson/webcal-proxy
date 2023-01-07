@@ -64,40 +64,17 @@ func (s *Server) HandleWebcal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	upstreamURLString := r.URL.Query().Get("cal")
-	if upstreamURLString == "" {
-		log.Error("Missing cal param")
-		http.Error(w, "Missing query paramater: cal", http.StatusBadRequest)
-		return
-	}
-
-	upstreamURLString, err := url.QueryUnescape(upstreamURLString)
+	upstreamURL, err := s.parseCalendarURL(upstreamURLString)
 	if err != nil {
-		log.Error("Invalid cal param: ", upstreamURLString)
-		http.Error(w, "Invalid calendar url", http.StatusBadRequest)
+		log.Errorf("Failed to validate calendar URL: %s", err)
+		http.Error(w, "Bad request: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	upstreamURL, err := url.Parse(upstreamURLString)
+	log.Info("Fetching: ", upstreamURL)
+	upstream, err := s.fetch(upstreamURL)
 	if err != nil {
-		log.Error("Invalid url: ", err)
-		http.Error(w, "Invalid calendar url", http.StatusBadRequest)
-		return
-	}
-
-	log.Info("Fetching: ", upstreamURL.String())
-
-	if upstreamURL.Scheme == "webcal" {
-		upstreamURL.Scheme = "http"
-	}
-	if upstreamURL.Scheme != "http" && upstreamURL.Scheme != "https" {
-		log.Error("Wrong protocol scheme for calendar: ", upstreamURL.Scheme)
-		http.Error(w, "Invalid calendar url", http.StatusBadRequest)
-		return
-	}
-
-	upstream, err := s.fetch(upstreamURL.String())
-	if err != nil {
-		log.Errorf("Failed to fetch %q: %s", upstreamURL.String(), err)
+		log.Errorf("Failed to fetch %q: %s", upstreamURL, err)
 		http.Error(w, "Failed to fetch calendar: "+err.Error(), http.StatusBadGateway)
 		return
 	}
@@ -131,6 +108,31 @@ func (s *Server) HandleWebcal(w http.ResponseWriter, r *http.Request) {
 	downstream.SerializeTo(w)
 
 	log.Infof("Served %d/%d events", len(downstream.Events()), len(upstream.Events()))
+}
+
+func (s *Server) parseCalendarURL(addr string) (string, error) {
+	if addr == "" {
+		return "", errors.New("missing query paramater: cal")
+	}
+
+	addrString, err := url.QueryUnescape(addr)
+	if err != nil {
+		return "", errors.New("invalid calendar url")
+	}
+
+	addrURL, err := url.Parse(addrString)
+	if err != nil {
+		return "", errors.New("invalid calendar url")
+	}
+
+	if addrURL.Scheme == "webcal" {
+		addrURL.Scheme = "http"
+	}
+	if addrURL.Scheme != "http" && addrURL.Scheme != "https" {
+		return "", errors.New("invalid calendar url")
+	}
+
+	return addrURL.String(), nil
 }
 
 type matchGroup []matcher
