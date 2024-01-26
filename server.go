@@ -96,6 +96,12 @@ func (s *Server) HandleWebcal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	downstream := ics.NewCalendar()
+	for _, component := range upstream.Components {
+		if _, ok := component.(*ics.VEvent); ok {
+			continue
+		}
+		downstream.Components = append(downstream.Components, component)
+	}
 	downstream.CalendarProperties = upstream.CalendarProperties
 	for _, event := range upstream.Events() {
 		if includes.matches(event) && !excludes.matches(event) {
