@@ -118,6 +118,20 @@ func TestRegexFilter(t *testing.T) {
 			allowLoopback: true,
 			wantStatus:    400,
 		},
+		"dontmerge": {
+			source:        calUnmerged,
+			options:       "?cal=http://CALURL",
+			allowLoopback: true,
+			wantStatus:    200,
+			want:          calUnmerged,
+		},
+		"merge": {
+			source:        calUnmerged,
+			options:       "?cal=http://CALURL&mrg=true",
+			allowLoopback: true,
+			wantStatus:    200,
+			want:          calMerged,
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

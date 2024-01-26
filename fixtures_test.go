@@ -17,4 +17,8 @@ var (
 	calShuffled []byte
 	//go:embed fixtures/calEventWithNoStart.ics
 	calEventWithNoStart []byte
+	//go:embed fixtures/calUnmerged.ics
+	calUnmerged []byte
+	//go:embed fixtures/calMerged.ics
+	calMerged []byte
 )

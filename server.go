@@ -7,8 +7,10 @@ import (
 	"net/url"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	ics "github.com/arran4/golang-ical"
 	"github.com/google/uuid"
@@ -83,9 +85,19 @@ func (s *Server) HandleWebcal(w http.ResponseWriter, r *http.Request) {
 	}
 	excludes, err := parseMatchers(r.URL.Query()["exc"])
 	if err != nil {
-		log.Errorf("Bad exc %q: %s", r.URL.Query()["exc"], err)
+		log.Errorf("Bad exc %q: %s", r.URL.Query().Get("exc"), err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+
+	var merge bool
+	if mergeArg := r.URL.Query().Get("mrg"); mergeArg != "" {
+		merge, err = strconv.ParseBool(mergeArg)
+		if err != nil {
+			log.Errorf("Bad mrg argument: %s", err)
+			http.Error(w, "Invalid mrg argument", http.StatusBadRequest)
+			return
+		}
 	}
 
 	log.Info("Fetching: ", upstreamURL)
@@ -128,6 +140,16 @@ func (s *Server) HandleWebcal(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Calendar has event without start", http.StatusBadRequest)
 		return
 	}
+
+	if merge {
+		events, err = mergeEvents(events)
+		if err != nil {
+			log.Errorf("Error merging events: %s", err)
+			http.Error(w, fmt.Sprintf("Invalid calendar: %s", err.Error()), http.StatusBadRequest)
+			return
+		}
+	}
+
 	for _, event := range events {
 		downstream.AddVEvent(event)
 	}
@@ -196,4 +218,76 @@ func parseMatchers(m []string) (matchGroup, error) {
 		})
 	}
 	return matches, nil
+}
+
+// mergeEvents will perform the merge algorithm on a slice of events sorted by
+// start time.
+func mergeEvents(events []*ics.VEvent) ([]*ics.VEvent, error) {
+	var (
+		newEvents   []*ics.VEvent
+		lastEndTime time.Time
+	)
+
+	for _, event := range events {
+		startTime, err := event.GetStartAt()
+		if err != nil {
+			return nil, errors.New("event has no start time")
+		}
+		endTime, err := event.GetEndAt()
+		if err != nil {
+			return nil, errors.New("event has no end time")
+		}
+
+		if len(newEvents) == 0 || !startTime.Before(lastEndTime) {
+			lastEndTime = endTime
+			newEvents = append(newEvents, event)
+			continue
+		}
+
+		lastEvent := newEvents[len(newEvents)-1]
+
+		lastSummary := lastEvent.GetProperty(ics.ComponentPropertySummary)
+		newSummary := ""
+		if lastSummary != nil {
+			newSummary = lastSummary.Value
+		}
+		summary := event.GetProperty(ics.ComponentPropertySummary)
+		if summary != nil {
+			newSummary += " + "
+			newSummary += summary.Value
+		}
+		lastEvent.SetSummary(newSummary)
+
+		lastDescription := lastEvent.GetProperty(ics.ComponentPropertyDescription)
+		newDescription := ""
+		if lastDescription != nil {
+			newDescription = lastDescription.Value
+		}
+		description := event.GetProperty(ics.ComponentPropertyDescription)
+		if description != nil {
+			newDescription += "\\n\\n---\\n"
+			if summary != nil {
+				newDescription += summary.Value + "\\n"
+			}
+			newDescription += "\\n"
+			newDescription += description.Value
+		}
+		if newDescription != "" {
+			lastEvent.SetProperty(ics.ComponentPropertyDescription, newDescription)
+		}
+
+		if endTime.After(lastEndTime) {
+			var props []ics.PropertyParameter
+			for k, v := range event.GetProperty(ics.ComponentPropertyDtEnd).ICalParameters {
+				props = append(props, &ics.KeyValues{
+					Key:   k,
+					Value: v,
+				})
+			}
+			lastEvent.SetProperty(ics.ComponentPropertyDtEnd, event.GetProperty(ics.ComponentPropertyDtEnd).Value, props...)
+			lastEndTime = endTime
+		}
+	}
+
+	return newEvents, nil
 }
