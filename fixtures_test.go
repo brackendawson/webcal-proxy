@@ -13,4 +13,8 @@ var (
 	calWithoutSecondary []byte
 	//go:embed fixtures/calMay22NotRotation.ics
 	calMay22NotRotation []byte
+	//go:embed fixtures/calShuffled.ics
+	calShuffled []byte
+	//go:embed fixtures/calEventWithNoStart.ics
+	calEventWithNoStart []byte
 )

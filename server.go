@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 
@@ -103,10 +104,32 @@ func (s *Server) HandleWebcal(w http.ResponseWriter, r *http.Request) {
 		downstream.Components = append(downstream.Components, component)
 	}
 	downstream.CalendarProperties = upstream.CalendarProperties
+	var events []*ics.VEvent
 	for _, event := range upstream.Events() {
 		if includes.matches(event) && !excludes.matches(event) {
-			downstream.AddVEvent(event)
+			events = append(events, event)
 		}
+	}
+	sort.SliceStable(events, func(i, j int) bool {
+		startI, sErr := events[i].GetStartAt()
+		if sErr != nil {
+			err = fmt.Errorf("event %q has no start date: %w", events[i].Serialize(), sErr)
+			return false
+		}
+		startJ, sErr := events[j].GetStartAt()
+		if sErr != nil {
+			err = fmt.Errorf("event %q has no start date: %w", events[i].Serialize(), sErr)
+			return false
+		}
+		return startI.Before(startJ)
+	})
+	if err != nil {
+		log.Errorf("Failed to sort events: %s", err)
+		http.Error(w, "Calendar has event without start", http.StatusBadRequest)
+		return
+	}
+	for _, event := range events {
+		downstream.AddVEvent(event)
 	}
 
 	w.Header().Set("Content-Type", "text/calendar")

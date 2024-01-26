@@ -105,6 +105,19 @@ func TestRegexFilter(t *testing.T) {
 			options:    "?cal=webcal://not.a.domain",
 			wantStatus: 502,
 		},
+		"sortsevents": {
+			source:        calShuffled,
+			options:       "?cal=http://CALURL",
+			allowLoopback: true,
+			wantStatus:    200,
+			want:          calExample,
+		},
+		"eventwithnostart": {
+			source:        calEventWithNoStart,
+			options:       "?cal=http://CALURL",
+			allowLoopback: true,
+			wantStatus:    400,
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
