@@ -265,11 +265,11 @@ func mergeEvents(events []*ics.VEvent) ([]*ics.VEvent, error) {
 		}
 		description := event.GetProperty(ics.ComponentPropertyDescription)
 		if description != nil {
-			newDescription += "\\n\\n---\\n"
+			newDescription += "\n\n---\n"
 			if summary != nil {
-				newDescription += summary.Value + "\\n"
+				newDescription += summary.Value + "\n"
 			}
-			newDescription += "\\n"
+			newDescription += "\n"
 			newDescription += description.Value
 		}
 		if newDescription != "" {

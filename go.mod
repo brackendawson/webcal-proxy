@@ -3,7 +3,7 @@ module github.com/brackendawson/webcal-proxy
 go 1.18
 
 require (
-	github.com/arran4/golang-ical v0.0.0-20220424140932-da9e1dd56623
+	github.com/arran4/golang-ical v0.3.1
 	github.com/google/uuid v1.3.0
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.1
