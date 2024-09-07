@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	ics "github.com/arran4/golang-ical"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -146,7 +147,7 @@ func TestRegexFilter(t *testing.T) {
 
 			tsURL, err := url.Parse(ts.URL)
 			require.NoError(t, err)
-			url := "http://localhost" + strings.Replace(test.options, "CALURL", tsURL.Host, 1)
+			url := "http://localhost/" + strings.Replace(test.options, "CALURL", tsURL.Host, 1)
 			t.Log(url)
 			r := httptest.NewRequest("GET", url, nil)
 			w := httptest.NewRecorder()
@@ -154,8 +155,9 @@ func TestRegexFilter(t *testing.T) {
 			defer func(prev bool) { allowLoopback = prev }(allowLoopback)
 			allowLoopback = test.allowLoopback
 
-			s := Server{}
-			s.HandleWebcal(w, r)
+			router := gin.New()
+			New(router)
+			router.ServeHTTP(w, r)
 
 			assert.Equal(t, test.wantStatus, w.Code)
 			if test.want != nil {

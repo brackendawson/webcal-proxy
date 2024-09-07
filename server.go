@@ -13,8 +13,8 @@ import (
 	"time"
 
 	ics "github.com/arran4/golang-ical"
-	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
+	"github.com/gin-contrib/requestid"
+	"github.com/gin-gonic/gin"
 )
 
 const (
@@ -22,9 +22,20 @@ const (
 )
 
 type Server struct {
+	// MaxConns is the maximum concurrent upstream connections the server can
+	// make. It cannot be changed after the first upstream connection is made.
+	// If set to 0 then 8 connections are allowed.
 	MaxConns   int
 	semaphore  chan struct{}
 	clientOnce sync.Once
+}
+
+func New(r *gin.Engine) *Server {
+	s := &Server{}
+	r.Use(requestid.New())
+	r.Use(logging)
+	r.GET("/", s.HandleWebcal)
+	return s
 }
 
 func (s *Server) clientInit() {
@@ -57,54 +68,48 @@ func (s *Server) fetch(url string) (*ics.Calendar, error) {
 	return ics.ParseCalendar(upstream.Body)
 }
 
-func (s *Server) HandleWebcal(w http.ResponseWriter, r *http.Request) {
-	log := logrus.WithField("request", uuid.New())
-
-	if r.Method != http.MethodGet {
-		log.Errorf("Reveived %s request", r.Method)
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	upstreamURLString := r.URL.Query().Get("cal")
+func (s *Server) HandleWebcal(c *gin.Context) {
+	upstreamURLString := c.Query("cal")
 	upstreamURL, err := s.parseCalendarURL(upstreamURLString)
 	if err != nil {
-		log.Errorf("Failed to validate calendar URL: %s", err)
-		http.Error(w, "Bad request: "+err.Error(), http.StatusBadRequest)
+		c.AbortWithError(http.StatusBadRequest,
+			fmt.Errorf("error validating calendar URL: %s", err))
 		return
 	}
 
-	includes, err := parseMatchers(r.URL.Query()["inc"])
+	includes, err := parseMatchers(c.QueryArray("inc"))
 	if err != nil {
-		log.Errorf("Bad inc %q: %s", r.URL.Query()["inc"], err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		c.AbortWithError(http.StatusBadRequest,
+			fmt.Errorf("error parsing inc argument %q: %s", c.QueryArray("inc"), err))
 		return
 	}
 	if len(includes) == 0 {
-		includes = append(includes, matcher{property: ics.ComponentPropertySummary, regx: regexp.MustCompile(".*")})
+		includes = append(includes, matcher{
+			property: ics.ComponentPropertySummary,
+			regx:     regexp.MustCompile(".*"),
+		})
 	}
-	excludes, err := parseMatchers(r.URL.Query()["exc"])
+	excludes, err := parseMatchers(c.QueryArray("exc"))
 	if err != nil {
-		log.Errorf("Bad exc %q: %s", r.URL.Query().Get("exc"), err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		c.AbortWithError(http.StatusBadRequest,
+			fmt.Errorf("error parsing exc argument %q: %s", c.QueryArray("exc"), err))
 		return
 	}
 
 	var merge bool
-	if mergeArg := r.URL.Query().Get("mrg"); mergeArg != "" {
+	if mergeArg := c.Query("mrg"); mergeArg != "" {
 		merge, err = strconv.ParseBool(mergeArg)
 		if err != nil {
-			log.Errorf("Bad mrg argument: %s", err)
-			http.Error(w, "Invalid mrg argument", http.StatusBadRequest)
+			c.AbortWithError(http.StatusBadRequest,
+				fmt.Errorf("error parsing mrg argument: %s", err))
 			return
 		}
 	}
 
-	log.Info("Fetching: ", upstreamURL)
 	upstream, err := s.fetch(upstreamURL)
 	if err != nil {
-		log.Errorf("Failed to fetch %q: %s", upstreamURL, err)
-		http.Error(w, "Failed to fetch calendar.", http.StatusBadGateway)
+		c.AbortWithError(http.StatusBadGateway,
+			fmt.Errorf("error fetching calendar %q: %s", upstreamURL, err))
 		return
 	}
 
@@ -136,16 +141,16 @@ func (s *Server) HandleWebcal(w http.ResponseWriter, r *http.Request) {
 		return startI.Before(startJ)
 	})
 	if err != nil {
-		log.Errorf("Failed to sort events: %s", err)
-		http.Error(w, "Calendar has event without start", http.StatusBadRequest)
+		c.AbortWithError(http.StatusBadRequest,
+			fmt.Errorf("error sorting events: %s", err))
 		return
 	}
 
 	if merge {
 		events, err = mergeEvents(events)
 		if err != nil {
-			log.Errorf("Error merging events: %s", err)
-			http.Error(w, fmt.Sprintf("Invalid calendar: %s", err.Error()), http.StatusBadRequest)
+			c.AbortWithError(http.StatusBadRequest,
+				fmt.Errorf("error merging events: %s", err))
 			return
 		}
 	}
@@ -154,10 +159,8 @@ func (s *Server) HandleWebcal(w http.ResponseWriter, r *http.Request) {
 		downstream.AddVEvent(event)
 	}
 
-	w.Header().Set("Content-Type", "text/calendar")
-	_ = downstream.SerializeTo(w)
-
-	log.Infof("Served %d/%d events", len(downstream.Events()), len(upstream.Events()))
+	c.Header("Content-Type", "text/calendar")
+	_ = downstream.SerializeTo(c.Writer)
 }
 
 func (s *Server) parseCalendarURL(addr string) (string, error) {
