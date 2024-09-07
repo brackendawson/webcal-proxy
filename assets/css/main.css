@@ -1,0 +1,29 @@
+body {
+    /* font-family: Arial, Helvetica, sans-serif; */
+}
+
+header {
+    margin: 0;
+    padding: 2rem;
+    text-align: center;
+    color: #ffffff;
+    background: #ffaa00;
+    background-image: linear-gradient(
+        #ffaa00,
+        #ff6600 100%
+    );
+}
+
+.content {
+    padding: 0.5rem;
+    max-width: 60rem;
+    margin: auto;
+}
+
+.config-form{
+    margin: 1rem;
+}
+
+#calendar {
+    margin: 1rem;
+}

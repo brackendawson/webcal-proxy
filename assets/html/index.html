@@ -1,0 +1,36 @@
+{{ define "index" }}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Webcal Proxy</title>
+        <link rel="icon" type="image/x-icon" href="assets/img/favicon.ico">
+        <link rel="stylesheet" href="/assets/css/bootstrap.min.css">
+        <link rel="stylesheet" href="/assets/css/main.css">
+        <script src="/assets/js/htmx.min.js"></script>
+        <script src="/assets/js/settings.js"></script>
+    </head>
+    <body>
+        <header>
+            <h1>Webcal Proxy</h1>
+        </header>
+        <div class="content">
+            <form class="config-form"
+                data-hx-get="/"
+                data-hx-target="#calendar"
+                data-hx-swap="outerHTML"
+                data-hx-trigger="keyup changed delay:1s from:#input-url,"
+            >
+                <input id="input-url"
+                    type="text"
+                    name="cal"
+                    class="form-control"
+                    placeholder="enter a webcal url"
+                >
+            </form>
+            <div id="calendar">
+                <p>I am a calendar</p>
+            </div>
+        </div>
+    </body>
+</html>
+{{ end }}

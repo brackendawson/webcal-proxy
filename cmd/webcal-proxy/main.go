@@ -7,18 +7,21 @@ import (
 	"os"
 
 	server "github.com/brackendawson/webcal-proxy"
+	"github.com/gin-contrib/secure"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
 
 func main() {
 	var (
-		addr     string
-		logFile  string
-		logLevel logrus.Level
+		addr         string
+		logFile      string
+		logLevel     logrus.Level
+		secureConfig secure.Config = secure.DefaultConfig()
 	)
 	flag.StringVar(&logFile, "logfile", "", "File to log to")
 	flag.TextVar(&logLevel, "log-level", logrus.InfoLevel, "log level")
+	flag.BoolVar(&secureConfig.IsDevelopment, "dev", false, "disables security policies that prevent http://localhost from working")
 	flag.StringVar(&addr, "addr", ":80", "local address:port to bind to")
 	flag.Parse()
 
@@ -36,8 +39,12 @@ func main() {
 
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
+	r.Use(secure.New(secureConfig))
 	server.New(r)
 
+	if secureConfig.IsDevelopment {
+		logrus.Warn("In development mode, some security policies disabled to allow http://localhost/ to work.")
+	}
 	logrus.Info("Begin listener...")
 	logrus.Fatal(http.ListenAndServe(addr, r))
 }
