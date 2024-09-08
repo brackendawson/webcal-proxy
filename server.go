@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	ics "github.com/arran4/golang-ical"
 	"github.com/brackendawson/webcal-proxy/assets"
@@ -70,7 +71,7 @@ func (s *Server) fetch(url string) (*ics.Calendar, error) {
 }
 
 func (s *Server) HandleWebcal(c *gin.Context) {
-	if isBrowser(c.GetHeader("Accept")) {
+	if isBrowser(c) {
 		s.HandleIndex(c)
 		return
 	}
@@ -78,26 +79,26 @@ func (s *Server) HandleWebcal(c *gin.Context) {
 	upstreamURLString := c.Query("cal")
 	upstreamURL, err := s.parseCalendarURL(upstreamURLString)
 	if err != nil {
-		c.AbortWithError(http.StatusBadRequest,
+		_ = c.AbortWithError(http.StatusBadRequest,
 			fmt.Errorf("error validating calendar URL: %s", err))
 		return
 	}
 
 	includes, err := parseMatchers(c.QueryArray("inc"))
 	if err != nil {
-		c.AbortWithError(http.StatusBadRequest,
+		_ = c.AbortWithError(http.StatusBadRequest,
 			fmt.Errorf("error parsing inc argument %q: %s", c.QueryArray("inc"), err))
 		return
 	}
 	if len(includes) == 0 {
 		includes = append(includes, matcher{
-			property: ics.ComponentPropertySummary,
-			regx:     regexp.MustCompile(".*"),
+			property:   ics.ComponentPropertySummary,
+			expression: regexp.MustCompile(".*"),
 		})
 	}
 	excludes, err := parseMatchers(c.QueryArray("exc"))
 	if err != nil {
-		c.AbortWithError(http.StatusBadRequest,
+		_ = c.AbortWithError(http.StatusBadRequest,
 			fmt.Errorf("error parsing exc argument %q: %s", c.QueryArray("exc"), err))
 		return
 	}
@@ -106,7 +107,7 @@ func (s *Server) HandleWebcal(c *gin.Context) {
 	if mergeArg := c.Query("mrg"); mergeArg != "" {
 		merge, err = strconv.ParseBool(mergeArg)
 		if err != nil {
-			c.AbortWithError(http.StatusBadRequest,
+			_ = c.AbortWithError(http.StatusBadRequest,
 				fmt.Errorf("error parsing mrg argument: %s", err))
 			return
 		}
@@ -114,7 +115,7 @@ func (s *Server) HandleWebcal(c *gin.Context) {
 
 	upstream, err := s.fetch(upstreamURL)
 	if err != nil {
-		c.AbortWithError(http.StatusBadGateway,
+		_ = c.AbortWithError(http.StatusBadGateway,
 			fmt.Errorf("error fetching calendar %q: %s", upstreamURL, err))
 		return
 	}
@@ -147,7 +148,7 @@ func (s *Server) HandleWebcal(c *gin.Context) {
 		return startI.Before(startJ)
 	})
 	if err != nil {
-		c.AbortWithError(http.StatusBadRequest,
+		_ = c.AbortWithError(http.StatusBadRequest,
 			fmt.Errorf("error sorting events: %s", err))
 		return
 	}
@@ -155,7 +156,7 @@ func (s *Server) HandleWebcal(c *gin.Context) {
 	if merge {
 		events, err = mergeEvents(events)
 		if err != nil {
-			c.AbortWithError(http.StatusBadRequest,
+			_ = c.AbortWithError(http.StatusBadRequest,
 				fmt.Errorf("error merging events: %s", err))
 			return
 		}
@@ -170,11 +171,16 @@ func (s *Server) HandleWebcal(c *gin.Context) {
 }
 
 func (s *Server) HandleIndex(c *gin.Context) {
-	c.HTML(http.StatusOK, "index", nil)
+	userTime := time.Now() // TODO probably not show a calender in pass 1
+	c.HTML(http.StatusOK, "index", newCalendar(viewMonth, userTime))
 }
 
-func isBrowser(accept string) bool {
-	for _, mediaType := range strings.Split(accept, ",") {
+func isBrowser(c *gin.Context) bool {
+	if c.Request.Method != http.MethodGet {
+		return false
+	}
+
+	for _, mediaType := range strings.Split(c.GetHeader("Accept"), ",") {
 		if mediaType == "text/html" {
 			return true
 		}

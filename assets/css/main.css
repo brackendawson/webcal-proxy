@@ -15,6 +15,7 @@ body {
 
 header {
     width: 100%;
+    min-width: 20rem;
     padding: 2rem;
     padding-bottom: 1rem;
     text-align: center;
@@ -27,6 +28,7 @@ article {
     flex-grow: 1;
     padding: 1rem;
     max-width: 60rem;
+    min-width: 20rem;
     width: 100%;
 }
 
@@ -35,9 +37,10 @@ article {
     flex-direction: column;
     align-items: center;
     width: 100%;
+    min-width: 20rem;
     color: #ffffff;
-    background: #ffaa00;
-    background-image: linear-gradient(#ff6600, #ffaa00 100%);
+    background: #ffa500;
+    background-image: linear-gradient(#ff6600, #ffa500 100%);
 }
 
 footer {
@@ -46,3 +49,55 @@ footer {
     padding: 1rem;
 }
 
+.calendar {
+    display: flex;
+    flex-direction: column;
+    border: solid 0.05rem;
+    border-color: #eeeeee;
+    margin-block: 1rem;
+}
+
+.calendar * {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.week-head {
+    display: flex;
+    text-align: center;
+    justify-content: center;
+}
+
+.week {
+    height: 6rem;
+    display: flex;
+}
+
+.day {
+    width: calc(100%/7);
+    border: solid 0.05rem;
+    border-color: #eeeeee;
+}
+
+.day-head {
+    border-radius: 0.25rem;
+    background: #eeeeee;
+    padding-left: 0.25rem;
+}
+
+.weekend .day-head {
+    border-radius: 0.25rem;
+    background: #cccccc;
+    padding-left: 0.25rem;
+}
+
+.today .day-head {
+    border-radius: 0.25rem;
+    background: #ffa500;
+    padding-left: 0.25rem;
+    color: #ffffff;
+}
+
+.day-spill * {
+    opacity: 25%;
+}

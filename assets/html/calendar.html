@@ -1,0 +1,34 @@
+{{ define "calendar" }}
+{{ if eq .View "month" }}
+    {{ template "month" . }}
+{{ end }}
+{{ end }}
+
+{{ define "month" }}
+<div class="calendar">
+    <div class="week-head">
+        <div class="calendar-title">{{ .Title }}</div>
+    </div>
+    <div class="week-head">
+        <div class="day">Monday</div>
+        <div class="day">Tuesday</div>
+        <div class="day">Wednesday</div>
+        <div class="day">Thursday</div>
+        <div class="day">Friday</div>
+        <div class="day">Saturday</div>
+        <div class="day">Sunday</div>
+    </div>
+    {{ range $i, $day := .Days }}
+        {{ if eq 0 (rem $i 7) }}
+            <div class="week">
+        {{ end }}
+                <div class="day {{ if gt (rem $i 7) 4 }}weekend{{ end }} {{ if $day.Today }}today{{ end }} {{ if $day.Spill }}day-spill{{ end }}">
+                    <div class="day-head">{{ $day.Number }}</div>
+                    <div class="day-content"></div>
+                </div>
+        {{ if eq 6 (rem $i 7) }}
+            </div>
+        {{ end }}
+    {{ end }}
+</div>
+{{ end }}

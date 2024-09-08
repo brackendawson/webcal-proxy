@@ -8,9 +8,65 @@ import (
 	ics "github.com/arran4/golang-ical"
 )
 
+type calendarView string
+
+const (
+	viewMonth calendarView = "month"
+)
+
+type day struct {
+	Number int
+	Today  bool
+	Spill  bool
+}
+
+func appendDay(s []day, focus time.Time, days ...time.Time) []day {
+	for _, d := range days {
+		s = append(s, day{
+			Number: d.Day(),
+			Today:  d.Month() == focus.Month() && d.Day() == focus.Day(),
+			Spill:  d.Month() != focus.Month(),
+		})
+	}
+	return s
+}
+
+type calendar struct {
+	View  calendarView
+	Title string
+	Days  []day
+}
+
+func newCalendar(view calendarView, focus time.Time) calendar {
+	c := calendar{
+		View: view,
+	}
+
+	c.Title = focus.Format("January 2006")
+
+	float := focus
+	for float.Day() > 1 {
+		float = float.AddDate(0, 0, -1)
+	}
+	for float.Weekday() != time.Monday {
+		float = float.AddDate(0, 0, -1)
+	}
+
+	for float.Month() <= focus.Month() {
+		c.Days = appendDay(c.Days, focus, float)
+		float = float.AddDate(0, 0, 1)
+	}
+	for float.Weekday() != time.Monday {
+		c.Days = appendDay(c.Days, focus, float)
+		float = float.AddDate(0, 0, 1)
+	}
+
+	return c
+}
+
 func (s *Server) parseCalendarURL(addr string) (string, error) {
 	if addr == "" {
-		return "", errors.New("missing query paramater: cal")
+		return "", errors.New("missing query parameter: cal")
 	}
 
 	addrString, err := url.QueryUnescape(addr)

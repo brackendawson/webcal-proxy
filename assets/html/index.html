@@ -16,10 +16,10 @@
         </header>
         <article>
             <form class="config-form"
-                data-hx-get="/"
+                data-hx-post="/"
                 data-hx-target="#calendar"
                 data-hx-swap="outerHTML"
-                data-hx-trigger="keyup changed delay:1s from:#input-url,"
+                data-hx-trigger="keyup changed delay:1s from:#input-url"
             >
                 <input id="input-url"
                     type="text"
@@ -28,10 +28,9 @@
                     placeholder="enter a webcal url"
                     aria-label="Calendar URL"
                 >
+                <input id="ical-cache" type="hidden">
             </form>
-            <div id="calendar">
-                <p>I am a calendar</p>
-            </div>
+            {{ template "calendar" . }}
         </article>
         <div class="footer-area">
             <footer>
