@@ -12,8 +12,9 @@
     <body>
         <header>
             <h1>Webcal Proxy</h1>
+            <p>Filter and merge events from webcal:// feeds</p>
         </header>
-        <div class="content">
+        <article>
             <form class="config-form"
                 data-hx-get="/"
                 data-hx-target="#calendar"
@@ -25,11 +26,17 @@
                     name="cal"
                     class="form-control"
                     placeholder="enter a webcal url"
+                    aria-label="Calendar URL"
                 >
             </form>
             <div id="calendar">
                 <p>I am a calendar</p>
             </div>
+        </article>
+        <div class="footer-area">
+            <footer>
+                <p>©2024 Bracken Dawson</p>
+            </footer>
         </div>
     </body>
 </html>
