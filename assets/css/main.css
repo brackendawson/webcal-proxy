@@ -1,3 +1,12 @@
+:root {
+    --max-width: 60rem;
+    --min-width: 20rem;
+    --light-bg: #ffaa00;
+    --dark-bg: #ff6600;
+    --light-grey: #eeeeee;
+    --med-grey: #cccccc;
+}
+
 * {
     margin: 0;
 }
@@ -11,7 +20,7 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    min-width: 20rem;
+    min-width: var(--min-width);
 }
 
 header {
@@ -19,33 +28,33 @@ header {
     padding: 2rem;
     padding-bottom: 1rem;
     text-align: center;
-    color: #ffffff;
-    background: #ffaa00;
-    background-image: linear-gradient(#ffaa00, #ff6600 100%);
+    color: white;
+    background: var(--light-bg);
+    background-image: linear-gradient(var(--light-bg), var(--dark-bg) 100%);
 }
 
 article {
     flex-grow: 1;
     padding: 1rem;
-    max-width: 60rem;
+    max-width: var(--max-width);
     width: 100%;
 }
 
 footer {
     width: 100%;
     box-sizing: border-box;
-    padding-inline: calc(50% - 30rem);
+    padding-inline: calc(50% - var(--max-width) / 2);
     padding-block: 1rem;
-    color: #ffffff;
-    background: #ffa500;
-    background-image: linear-gradient(#ff6600, #ffa500 100%);
+    color: white;
+    background: var(--light-bg);
+    background-image: linear-gradient(var(--dark-bg), var(--light-bg) 100%);
 }
 
 .calendar {
     display: flex;
     flex-direction: column;
     border: solid 0.05rem;
-    border-color: #eeeeee;
+    border-color: var(--light-grey);
     margin-block: 1rem;
 }
 
@@ -68,26 +77,26 @@ footer {
 .day {
     width: calc(100%/7);
     border: solid 0.05rem;
-    border-color: #eeeeee;
+    border-color: var(--light-grey);
 }
 
 .day-head {
     border-radius: 0.25rem;
-    background: #eeeeee;
+    background: var(--light-grey);
     padding-left: 0.25rem;
 }
 
 .weekend .day-head {
     border-radius: 0.25rem;
-    background: #cccccc;
+    background: var(--med-grey);
     padding-left: 0.25rem;
 }
 
 .today .day-head {
     border-radius: 0.25rem;
-    background: #ffa500;
+    background: var(--light-bg);
     padding-left: 0.25rem;
-    color: #ffffff;
+    color: white;
 }
 
 .day-spill * {
