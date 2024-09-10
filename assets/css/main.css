@@ -33,7 +33,7 @@ header {
     background-image: linear-gradient(var(--light-bg), var(--dark-bg) 100%);
 }
 
-article {
+main {
     flex-grow: 1;
     padding: 1rem;
     max-width: var(--max-width);

@@ -14,7 +14,7 @@
             <h1>Webcal Proxy</h1>
             <p>Filter and merge events from webcal:// feeds</p>
         </header>
-        <article>
+        <main>
             <form class="config-form"
                 data-hx-post="/"
                 data-hx-target="#calendar"
@@ -31,7 +31,7 @@
                 <input id="ical-cache" type="hidden">
             </form>
             {{ template "calendar" . }}
-        </article>
+        </main>
         <footer>
             <p>©2024 Bracken Dawson</p>
         </footer>
