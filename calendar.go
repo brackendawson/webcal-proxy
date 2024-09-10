@@ -44,13 +44,8 @@ func newCalendar(view calendarView, focus time.Time) calendar {
 
 	c.Title = focus.Format("January 2006")
 
-	float := focus
-	for float.Day() > 1 {
-		float = float.AddDate(0, 0, -1)
-	}
-	for float.Weekday() != time.Monday {
-		float = float.AddDate(0, 0, -1)
-	}
+	float := focus.AddDate(0, 0, -focus.Day()+1)
+	float = float.AddDate(0, 0, -mondayIndexWeekday(float.Weekday()))
 
 	for float.Month() <= focus.Month() {
 		c.Days = appendDay(c.Days, focus, float)
@@ -62,6 +57,10 @@ func newCalendar(view calendarView, focus time.Time) calendar {
 	}
 
 	return c
+}
+
+func mondayIndexWeekday(d time.Weekday) int {
+	return ((int(d)-1)%7 + 7) % 7
 }
 
 func (s *Server) parseCalendarURL(addr string) (string, error) {
