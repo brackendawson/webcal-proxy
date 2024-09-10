@@ -36,6 +36,7 @@ func New(r *gin.Engine) *Server {
 	r.Use(logging)
 	r.SetHTMLTemplate(assets.Templates())
 	r.GET("/", s.HandleWebcal)
+	r.POST("/", s.HandleCalendar)
 	r.StaticFS("/assets", http.FS(assets.Assets))
 	return s
 }
@@ -171,8 +172,7 @@ func (s *Server) HandleWebcal(c *gin.Context) {
 }
 
 func (s *Server) HandleIndex(c *gin.Context) {
-	userTime := time.Now() // TODO probably not show a calender in pass 1
-	c.HTML(http.StatusOK, "index", newCalendar(viewMonth, userTime))
+	c.HTML(http.StatusOK, "index", nil)
 }
 
 func isBrowser(c *gin.Context) bool {
@@ -186,4 +186,18 @@ func isBrowser(c *gin.Context) bool {
 		}
 	}
 	return false
+}
+
+func (s *Server) HandleCalendar(c *gin.Context) {
+	userTime := time.Now().UTC()
+
+	tz, err := time.LoadLocation(c.PostForm("user-tz"))
+	if nil == err {
+		log(c).Debugf("Using user time zone %q", tz)
+		userTime = userTime.In(tz)
+	} else {
+		log(c).Warnf("Failed to parse user time zone: %s, using UTC.", err)
+	}
+
+	c.HTML(http.StatusOK, "calendar", newCalendar(viewMonth, userTime))
 }

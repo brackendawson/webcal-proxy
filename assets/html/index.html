@@ -7,7 +7,7 @@
         <link rel="stylesheet" href="/assets/css/bootstrap.min.css">
         <link rel="stylesheet" href="/assets/css/main.css">
         <script src="/assets/js/htmx.min.js"></script>
-        <script src="/assets/js/settings.js"></script>
+        <script src="/assets/js/main.js"></script>
     </head>
     <body>
         <header>
@@ -19,7 +19,8 @@
                 data-hx-post="/"
                 data-hx-target="#calendar"
                 data-hx-swap="outerHTML"
-                data-hx-trigger="keyup changed delay:1s from:#input-url"
+                data-hx-trigger="load delay:1s,
+                    keyup changed delay:1s from:#input-url"
             >
                 <input id="input-url"
                     type="text"
@@ -28,9 +29,10 @@
                     placeholder="enter a webcal url"
                     aria-label="Calendar URL"
                 >
-                <input id="ical-cache" type="hidden">
+                <input id="user-tz" name="user-tz" type="hidden">
+                <input id="ical-cache" name="ical-cache" type="hidden">
             </form>
-            {{ template "calendar" . }}
+            <div id="calendar">
         </main>
         <footer>
             <p>©2024 Bracken Dawson</p>

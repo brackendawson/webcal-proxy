@@ -2,6 +2,7 @@ package assets
 
 import (
 	"embed"
+	"fmt"
 	"html/template"
 )
 
@@ -14,6 +15,9 @@ var (
 	funcs template.FuncMap = template.FuncMap{
 		"rem": func(x, y int) int {
 			return x % y
+		},
+		"errorf": func(format string, args ...any) (any, error) {
+			return nil, fmt.Errorf(format, args...)
 		},
 	}
 )

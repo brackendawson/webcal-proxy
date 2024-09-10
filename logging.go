@@ -16,6 +16,7 @@ func logging(c *gin.Context) {
 		"method": c.Request.Method,
 		"url":    c.Request.URL.String(),
 	})
+	c.Set("log", log)
 
 	c.Next()
 
@@ -29,4 +30,18 @@ func logging(c *gin.Context) {
 		"bytes":    c.Writer.Size(),
 		"duration": time.Since(start).Seconds(),
 	}).Info("Request complete")
+}
+
+func log(c *gin.Context) logrus.FieldLogger {
+	v, ok := c.Get("log")
+	if !ok {
+		return logrus.StandardLogger()
+	}
+
+	log, ok := v.(logrus.FieldLogger)
+	if !ok {
+		return logrus.StandardLogger()
+	}
+
+	return log
 }

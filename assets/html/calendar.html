@@ -1,11 +1,13 @@
 {{ define "calendar" }}
 {{ if eq .View "month" }}
     {{ template "month" . }}
+{{ else }}
+    {{ errorf "invalid view for calendar: %s" .View }}
 {{ end }}
 {{ end }}
 
 {{ define "month" }}
-<div class="calendar">
+<div id="calendar" class="calendar">
     <div class="week-head">
         <div class="calendar-title">{{ .Title }}</div>
     </div>
