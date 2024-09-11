@@ -8,12 +8,10 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	ics "github.com/arran4/golang-ical"
 	"github.com/brackendawson/webcal-proxy/assets"
-	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
 )
 
@@ -21,42 +19,65 @@ const (
 	defaultMaxConns = 8
 )
 
+type Opt func(*Server)
+
+// WithUnsafeClient allows the HTTP client to be set. No client other than the
+// default is safe to use.
+func WithUnsafeClient(c *http.Client) Opt {
+	return func(s *Server) {
+		s.client = c
+	}
+}
+
+// MaxConns sets the total max upstream connections the server can make. The
+// default is 8.
+func MaxConns(c int) Opt {
+	return func(s *Server) {
+		s.semaphore = make(chan struct{}, c)
+	}
+}
+
 type Server struct {
 	// MaxConns is the maximum concurrent upstream connections the server can
 	// make. It cannot be changed after the first upstream connection is made.
 	// If set to 0 then 8 connections are allowed.
-	MaxConns   int
-	semaphore  chan struct{}
-	clientOnce sync.Once
+	MaxConns int
+
+	client    *http.Client
+	semaphore chan struct{}
 }
 
-func New(r *gin.Engine) *Server {
-	s := &Server{}
-	r.Use(requestid.New())
+func New(r *gin.Engine, opts ...Opt) *Server {
+	s := &Server{
+		client: &http.Client{
+			Timeout: requestTimeoutSecs * time.Second,
+			Transport: &http.Transport{
+				DialContext: publicUnicastOnlyDialContext,
+			},
+			CheckRedirect: noRedirect,
+		},
+		semaphore: make(chan struct{}, defaultMaxConns),
+	}
+
 	r.Use(logging)
 	r.SetHTMLTemplate(assets.Templates())
 	r.GET("/", s.HandleWebcal)
 	r.POST("/", s.HandleCalendar)
 	r.StaticFS("/assets", http.FS(assets.Assets))
-	return s
-}
 
-func (s *Server) clientInit() {
-	maxConns := s.MaxConns
-	if maxConns < 1 {
-		maxConns = defaultMaxConns
+	for _, opt := range opts {
+		opt(s)
 	}
-	s.semaphore = make(chan struct{}, maxConns)
+
+	return s
 }
 
 // fetch fetches the given url from the given IP address
 func (s *Server) fetch(url string) (*ics.Calendar, error) {
-	s.clientOnce.Do(s.clientInit)
-
 	s.semaphore <- struct{}{}
 	defer func() { <-s.semaphore }()
 
-	upstream, err := client.Get(url)
+	upstream, err := s.client.Get(url)
 	if err != nil {
 		return nil, err
 	}

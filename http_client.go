@@ -14,17 +14,8 @@ const (
 )
 
 var (
-	dialer = &net.Dialer{}
-	client = &http.Client{
-		Timeout: requestTimeoutSecs * time.Second,
-		Transport: &http.Transport{
-			DialContext: publicUnicastOnlyDialContext,
-		},
-		CheckRedirect: noRedirect,
-	}
+	dialer   = &net.Dialer{}
 	resolver = &net.Resolver{}
-
-	allowLoopback = false
 )
 
 func noRedirect(*http.Request, []*http.Request) error {
@@ -54,7 +45,6 @@ func publicUnicastOnlyDialContext(ctx context.Context, network, addr string) (ne
 	for _, ipAddr := range ipAddrs {
 		ip = net.ParseIP(ipAddr)
 		switch {
-		case allowLoopback && ip.IsLoopback():
 		case !ip.IsGlobalUnicast() || ip.IsPrivate():
 			dialErrs = append(dialErrs, fmt.Errorf("forbidden address: %s", ipAddr))
 			continue

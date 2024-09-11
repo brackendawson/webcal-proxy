@@ -1,4 +1,4 @@
-package server
+package server_test
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	ics "github.com/arran4/golang-ical"
+	server "github.com/brackendawson/webcal-proxy"
 	"github.com/brackendawson/webcal-proxy/assets"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/render"
@@ -17,195 +18,224 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRegexFilter(t *testing.T) {
+func TestServer(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
 	for name, test := range map[string]struct {
-		source          []byte
-		tryRedirect     bool
-		options         string
-		headers         map[string]string
-		allowLoopback   bool
-		wantSourceURL   string
-		wantCal         []byte
-		wantBody        []byte
-		wantHTTPRenders map[string]any
-		wantStatus      int
+		// input request
+		inputQuery   string
+		inputHeaders map[string]string
+
+		// server settings
+		serverOpts []server.Opt
+
+		// upstream server double
+		upstreamStatus  int
+		upstreamHeaders map[string]string
+		upstreamBody    []byte
+
+		// assertions
+		expectedStatus       int
+		expectedCalendar     []byte
+		expectedBody         []byte
+		expectedTemplateName string
+		expectedTemplateObj  any
 	}{
 		"default": {
-			source:        calExample,
-			options:       "?cal=http://CALURL",
-			allowLoopback: true,
-			wantStatus:    200,
-			wantCal:       calExample,
+			inputQuery: "?cal=http://CALURL",
+			serverOpts: []server.Opt{
+				server.WithUnsafeClient(&http.Client{}),
+				server.MaxConns(1),
+			},
+			upstreamStatus:   http.StatusOK,
+			upstreamBody:     calExample,
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: calExample,
 		},
 		"no-cal": {
-			source:        calExample,
-			options:       "?not=right",
-			allowLoopback: true,
-			wantStatus:    400,
+			inputQuery:     "?not=right",
+			serverOpts:     []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamStatus: http.StatusOK,
+			upstreamBody:   calExample,
+			expectedStatus: http.StatusBadRequest,
 		},
 		"includeRotation": {
-			source:        calExample,
-			options:       "?cal=http://CALURL&inc=SUMMARY=Rotation",
-			allowLoopback: true,
-			wantStatus:    200,
-			wantCal:       calOnlyRotation,
+			inputQuery:       "?cal=http://CALURL&inc=SUMMARY=Rotation",
+			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamStatus:   http.StatusOK,
+			upstreamBody:     calExample,
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: calOnlyRotation,
 		},
 		"excludeSecondary": {
-			source:        calExample,
-			options:       "?cal=http://CALURL&exc=SUMMARY=Secondary",
-			allowLoopback: true,
-			wantStatus:    200,
-			wantCal:       calWithoutSecondary,
+			inputQuery:       "?cal=http://CALURL&exc=SUMMARY=Secondary",
+			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamStatus:   http.StatusOK,
+			upstreamBody:     calExample,
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: calWithoutSecondary,
 		},
 		"includeExclude": {
-			source:        calExample,
-			options:       `?cal=http://CALURL&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			allowLoopback: true,
-			wantStatus:    200,
-			wantCal:       calMay22NotRotation,
+			inputQuery:       `?cal=http://CALURL&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
+			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamStatus:   http.StatusOK,
+			upstreamBody:     calExample,
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: calMay22NotRotation,
 		},
 		"local": {
-			source:     calExample,
-			options:    `?cal=http://127.0.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			wantStatus: 502,
+			inputQuery:     `?cal=http://127.0.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
+			upstreamStatus: http.StatusOK,
+			upstreamBody:   calExample,
+			expectedStatus: 502,
 		},
 		"private": {
-			source:     calExample,
-			options:    `?cal=http://192.168.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			wantStatus: 502,
+			inputQuery:     `?cal=http://192.168.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
+			upstreamStatus: http.StatusOK,
+			upstreamBody:   calExample,
+			expectedStatus: 502,
 		},
 		"vpn": {
-			source:     calExample,
-			options:    `?cal=http://10.0.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			wantStatus: 502,
+			inputQuery:     `?cal=http://10.0.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
+			upstreamStatus: http.StatusOK,
+			upstreamBody:   calExample,
+			expectedStatus: 502,
 		},
 		"localhost": {
-			source:     calExample,
-			options:    `?cal=http://localhost:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			wantStatus: 502,
+			inputQuery:     `?cal=http://localhost:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
+			upstreamStatus: http.StatusOK,
+			upstreamBody:   calExample,
+			expectedStatus: 502,
 		},
 		"no-port-localhost": {
-			source:     calExample,
-			options:    `?cal=http://localhost&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			wantStatus: 502,
+			inputQuery:     `?cal=http://localhost&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
+			upstreamStatus: http.StatusOK,
+			upstreamBody:   calExample,
+			expectedStatus: 502,
 		},
 		"webcal": {
-			source:        calExample,
-			options:       `?cal=webcal://CALURL`,
-			allowLoopback: true,
-			wantStatus:    200,
-			wantCal:       calExample,
+			inputQuery:       `?cal=webcal://CALURL`,
+			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamStatus:   http.StatusOK,
+			upstreamBody:     calExample,
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: calExample,
 		},
 		"ftp": {
-			source:        calExample,
-			options:       `?cal=ftp://CALURL`,
-			allowLoopback: true,
-			wantStatus:    400,
+			inputQuery:     `?cal=ftp://CALURL`,
+			serverOpts:     []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamStatus: http.StatusOK,
+			upstreamBody:   calExample,
+			expectedStatus: http.StatusBadRequest,
 		},
 		"redirect": {
-			tryRedirect:   true,
-			options:       `?cal=webcal://CALURL`,
-			allowLoopback: true,
-			wantStatus:    502,
+			inputQuery: `?cal=webcal://CALURL`,
+			// serverOpts:      []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamStatus:  http.StatusMovedPermanently,
+			upstreamHeaders: map[string]string{"Location": "http://192.168.0.1"},
+			expectedStatus:  502,
 		},
 		"unresolvable": {
-			options:    "?cal=webcal://not.a.domain",
-			wantStatus: 502,
+			inputQuery:     "?cal=webcal://not.a.domain",
+			expectedStatus: 502,
 		},
 		"sortsevents": {
-			source:        calShuffled,
-			options:       "?cal=http://CALURL",
-			allowLoopback: true,
-			wantStatus:    200,
-			wantCal:       calExample,
+			inputQuery:       "?cal=http://CALURL",
+			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamStatus:   http.StatusOK,
+			upstreamBody:     calShuffled,
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: calExample,
 		},
 		"eventwithnostart": {
-			source:        calEventWithNoStart,
-			options:       "?cal=http://CALURL",
-			allowLoopback: true,
-			wantStatus:    400,
+			inputQuery:     "?cal=http://CALURL",
+			serverOpts:     []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamStatus: http.StatusOK,
+			upstreamBody:   calEventWithNoStart,
+			expectedStatus: http.StatusBadRequest,
 		},
 		"dontmerge": {
-			source:        calUnmerged,
-			options:       "?cal=http://CALURL",
-			allowLoopback: true,
-			wantStatus:    200,
-			wantCal:       calUnmerged,
+			inputQuery:       "?cal=http://CALURL",
+			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamStatus:   http.StatusOK,
+			upstreamBody:     calUnmerged,
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: calUnmerged,
 		},
 		"merge": {
-			source:        calUnmerged,
-			options:       "?cal=http://CALURL&mrg=true",
-			allowLoopback: true,
-			wantStatus:    200,
-			wantCal:       calMerged,
+			inputQuery:       "?cal=http://CALURL&mrg=true",
+			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamStatus:   http.StatusOK,
+			upstreamBody:     calUnmerged,
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: calMerged,
 		},
 		"htmx_asset": {
-			options:    "assets/js/htmx.min.js",
-			wantStatus: 200,
-			wantBody: func() []byte {
+			inputQuery:     "assets/js/htmx.min.js",
+			expectedStatus: http.StatusOK,
+			expectedBody: func() []byte {
 				b, err := assets.Assets.ReadFile("js/htmx.min.js")
 				require.NoError(t, err)
 				return b
 			}(),
 		},
 		"html_index": {
-			headers:         map[string]string{"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8"},
-			wantStatus:      200,
-			wantHTTPRenders: map[string]any{"index": nil},
+			inputHeaders:         map[string]string{"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8"},
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "index",
+			expectedTemplateObj:  nil,
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if test.tryRedirect {
-					http.Redirect(w, r, "192.168.0.1", http.StatusMovedPermanently)
-					return
+			t.Parallel()
+
+			upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				for k, v := range test.upstreamHeaders {
+					w.Header().Set(k, v)
 				}
 				w.Header().Set("Content-Type", "text/calendar")
-				_, _ = w.Write(test.source)
+				w.WriteHeader(test.upstreamStatus)
+				_, _ = w.Write(test.upstreamBody)
 			}))
-			defer ts.Close()
+			defer upstreamServer.Close()
 
-			tsURL, err := url.Parse(ts.URL)
+			upstreamURL, err := url.Parse(upstreamServer.URL)
 			require.NoError(t, err)
-			url := "http://localhost/" + strings.Replace(test.options, "CALURL", tsURL.Host, 1)
-			t.Log(url)
-			r := httptest.NewRequest("GET", url, nil)
-			for k, v := range test.headers {
+			inputURL := "http://localhost/" + strings.Replace(test.inputQuery, "CALURL", upstreamURL.Host, 1)
+			t.Log(inputURL)
+			r := httptest.NewRequest("GET", inputURL, nil)
+			for k, v := range test.inputHeaders {
 				r.Header.Set(k, v)
 			}
 			w := httptest.NewRecorder()
 
-			defer func(prev bool) { allowLoopback = prev }(allowLoopback)
-			allowLoopback = test.allowLoopback
-
-			templ := &mockTemplate{}
-			templ.Test(t)
-			defer templ.AssertExpectations(t)
-			for template, data := range test.wantHTTPRenders {
+			tpl := &mockTemplate{}
+			tpl.Test(t)
+			defer tpl.AssertExpectations(t)
+			if test.expectedTemplateName != "" {
 				rend := &mockRender{}
 				rend.Test(t)
 				defer rend.AssertExpectations(t)
 				rend.On("Render", mock.Anything).Return(nil).Once()
-				templ.On("Instance", template, data).Return(rend).Once()
+				tpl.On("Instance", test.expectedTemplateName, test.expectedTemplateObj).Return(rend).Once()
 			}
 
-			gin.SetMode(gin.TestMode)
 			router := gin.New()
-			New(router)
-			router.HTMLRender = templ
+			server.New(router, test.serverOpts...)
+			router.HTMLRender = tpl
 			router.ServeHTTP(w, r)
 
-			assert.Equal(t, test.wantStatus, w.Code)
-			if test.wantCal != nil {
-				wantCal, err := ics.ParseCalendar(bytes.NewReader(test.wantCal))
+			assert.Equal(t, test.expectedStatus, w.Code)
+			if test.expectedCalendar != nil {
+				expectedCalendar, err := ics.ParseCalendar(bytes.NewReader(test.expectedCalendar))
 				require.NoError(t, err)
-				assert.Equal(t, []byte(wantCal.Serialize()), w.Body.Bytes())
 				assert.Equal(t, "text/calendar", w.Header().Get("Content-Type"))
-				t.Logf("want:\n%s", wantCal.Serialize())
-				t.Logf("got:\n%s", w.Body.String())
+				assert.Equal(t, []byte(expectedCalendar.Serialize()), w.Body.Bytes())
+				t.Logf("expected:\n%s", expectedCalendar.Serialize())
+				t.Logf("actual:\n%s", w.Body.String())
 			}
-			if test.wantBody != nil {
-				require.Equal(t, test.wantBody, w.Body.Bytes())
+			if test.expectedBody != nil {
+				require.Equal(t, test.expectedBody, w.Body.Bytes())
 			}
 		})
 	}
@@ -229,4 +259,12 @@ func (m *mockRender) Render(w http.ResponseWriter) error {
 
 func (m *mockRender) WriteContentType(w http.ResponseWriter) {
 	m.Called(w)
+}
+
+func must[T, U any](t *testing.T, f func(T) (U, error), v T) U {
+	u, err := f(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return u
 }
