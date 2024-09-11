@@ -17,7 +17,7 @@
     <div class="calendar-dow">Saturday</div>
     <div class="calendar-dow">Sunday</div>
     {{ range $i, $day := .Days }}
-        <div class="day day-{{ $day.Weekday }} {{ if $day.Today }}day-today{{ end }} {{ if $day.Spill }}day-spill{{ end }}">
+        <div class="day day-{{ $day.Weekday }}{{ if $day.Today }} day-today{{ end }}{{ if $day.Spill }} day-spill{{ end }}">
             <div class="day-head">{{ $day.Number }}</div>
             <div class="day-content"></div>
         </div>
