@@ -7,30 +7,20 @@
 {{ end }}
 
 {{ define "month" }}
-<div id="calendar" class="calendar">
-    <div class="week-head">
-        <div class="calendar-title">{{ .Title }}</div>
-    </div>
-    <div class="week-head">
-        <div class="day">Monday</div>
-        <div class="day">Tuesday</div>
-        <div class="day">Wednesday</div>
-        <div class="day">Thursday</div>
-        <div class="day">Friday</div>
-        <div class="day">Saturday</div>
-        <div class="day">Sunday</div>
-    </div>
+<div id="calendar">
+    <div class="calendar-title">{{ .Title }}</div>
+    <div class="calendar-dow">Monday</div>
+    <div class="calendar-dow">Tuesday</div>
+    <div class="calendar-dow">Wednesday</div>
+    <div class="calendar-dow">Thursday</div>
+    <div class="calendar-dow">Friday</div>
+    <div class="calendar-dow">Saturday</div>
+    <div class="calendar-dow">Sunday</div>
     {{ range $i, $day := .Days }}
-        {{ if eq 0 (rem $i 7) }}
-            <div class="week">
-        {{ end }}
-                <div class="day {{ if gt (rem $i 7) 4 }}weekend{{ end }} {{ if $day.Today }}today{{ end }} {{ if $day.Spill }}day-spill{{ end }}">
-                    <div class="day-head">{{ $day.Number }}</div>
-                    <div class="day-content"></div>
-                </div>
-        {{ if eq 6 (rem $i 7) }}
-            </div>
-        {{ end }}
+        <div class="day day-{{ $day.Weekday }} {{ if $day.Today }}day-today{{ end }} {{ if $day.Spill }}day-spill{{ end }}">
+            <div class="day-head">{{ $day.Number }}</div>
+            <div class="day-content"></div>
+        </div>
     {{ end }}
 </div>
 {{ end }}

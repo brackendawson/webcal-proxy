@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"net/url"
+	"strings"
 	"time"
 
 	ics "github.com/arran4/golang-ical"
@@ -15,17 +16,19 @@ const (
 )
 
 type day struct {
-	Number int
-	Today  bool
-	Spill  bool
+	Number  int
+	Weekday string
+	Today   bool
+	Spill   bool
 }
 
 func appendDay(s []day, focus time.Time, days ...time.Time) []day {
 	for _, d := range days {
 		s = append(s, day{
-			Number: d.Day(),
-			Today:  d.Month() == focus.Month() && d.Day() == focus.Day(),
-			Spill:  d.Month() != focus.Month(),
+			Number:  d.Day(),
+			Weekday: strings.ToLower(d.Weekday().String()),
+			Today:   d.Month() == focus.Month() && d.Day() == focus.Day(),
+			Spill:   d.Month() != focus.Month(),
 		})
 	}
 	return s

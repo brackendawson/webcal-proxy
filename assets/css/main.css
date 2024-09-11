@@ -50,31 +50,29 @@ footer {
     background-image: linear-gradient(var(--dark-bg), var(--light-bg) 100%);
 }
 
-.calendar {
+#calendar {
     display: flex;
-    flex-direction: column;
-    border: solid 0.05rem;
-    border-color: var(--light-grey);
+    flex-wrap: wrap;
     margin-block: 1rem;
 }
 
-.calendar * {
+#calendar * {
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.week-head {
-    display: flex;
+.calendar-title {
+    width: 100%;
     text-align: center;
-    justify-content: center;
 }
 
-.week {
-    height: 6rem;
-    display: flex;
+.calendar-dow {
+    width: calc(100%/7);
+    text-align: center;
 }
 
 .day {
+    height: 6rem;
     width: calc(100%/7);
     border: solid 0.05rem;
     border-color: var(--light-grey);
@@ -86,13 +84,14 @@ footer {
     padding-left: 0.25rem;
 }
 
-.weekend .day-head {
+.day-saturday .day-head,
+.day-sunday .day-head {
     border-radius: 0.25rem;
     background: var(--med-grey);
     padding-left: 0.25rem;
 }
 
-.today .day-head {
+.day-today .day-head {
     border-radius: 0.25rem;
     background: var(--light-bg);
     padding-left: 0.25rem;
