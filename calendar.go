@@ -12,19 +12,19 @@ import (
 type calendarView string
 
 const (
-	viewMonth calendarView = "month"
+	ViewMonth calendarView = "month"
 )
 
-type day struct {
+type Day struct {
 	Number  int
 	Weekday string
 	Today   bool
 	Spill   bool
 }
 
-func appendDay(s []day, focus time.Time, days ...time.Time) []day {
+func appendDay(s []Day, focus time.Time, days ...time.Time) []Day {
 	for _, d := range days {
-		s = append(s, day{
+		s = append(s, Day{
 			Number:  d.Day(),
 			Weekday: strings.ToLower(d.Weekday().String()),
 			Today:   d.Month() == focus.Month() && d.Day() == focus.Day(),
@@ -34,14 +34,14 @@ func appendDay(s []day, focus time.Time, days ...time.Time) []day {
 	return s
 }
 
-type calendar struct {
+type Calendar struct {
 	View  calendarView
 	Title string
-	Days  []day
+	Days  []Day
 }
 
-func newCalendar(view calendarView, focus time.Time) calendar {
-	c := calendar{
+func newCalendar(view calendarView, focus time.Time) Calendar {
+	c := Calendar{
 		View: view,
 	}
 

@@ -37,14 +37,17 @@ func MaxConns(c int) Opt {
 	}
 }
 
-type Server struct {
-	// MaxConns is the maximum concurrent upstream connections the server can
-	// make. It cannot be changed after the first upstream connection is made.
-	// If set to 0 then 8 connections are allowed.
-	MaxConns int
+func WithClock(f func() time.Time) Opt {
+	return func(s *Server) {
+		s.now = f
+	}
+}
 
+type Server struct {
 	client    *http.Client
 	semaphore chan struct{}
+
+	now func() time.Time
 }
 
 func New(r *gin.Engine, opts ...Opt) *Server {
@@ -57,6 +60,7 @@ func New(r *gin.Engine, opts ...Opt) *Server {
 			CheckRedirect: noRedirect,
 		},
 		semaphore: make(chan struct{}, defaultMaxConns),
+		now:       time.Now,
 	}
 
 	r.Use(logging)
@@ -210,7 +214,7 @@ func isBrowser(c *gin.Context) bool {
 }
 
 func (s *Server) HandleCalendar(c *gin.Context) {
-	userTime := time.Now().UTC()
+	userTime := s.now().UTC()
 
 	tz, err := time.LoadLocation(c.PostForm("user-tz"))
 	if nil == err {
@@ -220,5 +224,5 @@ func (s *Server) HandleCalendar(c *gin.Context) {
 		log(c).Warnf("Failed to parse user time zone: %s, using UTC.", err)
 	}
 
-	c.HTML(http.StatusOK, "calendar", newCalendar(viewMonth, userTime))
+	c.HTML(http.StatusOK, "calendar", newCalendar(ViewMonth, userTime))
 }
