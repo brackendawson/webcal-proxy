@@ -2,6 +2,8 @@ package server_test
 
 import (
 	_ "embed"
+	"fmt"
+	"time"
 
 	server "github.com/brackendawson/webcal-proxy"
 )
@@ -24,7 +26,7 @@ var (
 	//go:embed fixtures/calMerged.ics
 	calMerged []byte
 
-	month11september2024 = []server.Day{
+	month11Sept2024 = []server.Day{
 		{Number: 26, Weekday: "monday", Spill: true},
 		{Number: 27, Weekday: "tuesday", Spill: true},
 		{Number: 28, Weekday: "wednesday", Spill: true},
@@ -68,4 +70,43 @@ var (
 		{Number: 5, Weekday: "saturday", Spill: true},
 		{Number: 6, Weekday: "sunday", Spill: true},
 	}
+	//go:embed fixtures/events11Sept2024.ics
+	events11Sept2024 []byte
+	lon              = func() *time.Location {
+		l, err := time.LoadLocation("Europe/London")
+		if err != nil {
+			panic(fmt.Errorf("Invalid time zone: %s", err))
+		}
+		return l
+	}()
+	month11Sept2024WithEvents = func() []server.Day {
+		c := make([]server.Day, len(month11Sept2024))
+		copy(c, month11Sept2024)
+		c[10+5].Events = []server.Event{
+			{
+				StartTime:   time.Date(2024, 9, 10, 12, 0, 0, 0, lon),
+				EndTime:     time.Date(2024, 9, 10, 12, 0, 0, 0, lon),
+				Summary:     "Meeting",
+				Location:    "Office",
+				Description: "Take notes",
+			},
+		}
+		c[11+5].Events = []server.Event{
+			{
+				StartTime: time.Date(2024, 9, 11, 12, 0, 0, 0, lon),
+				EndTime:   time.Date(2024, 9, 11, 13, 0, 0, 0, lon),
+				Summary:   "Picnic",
+				Location:  "Park",
+			},
+		}
+		c[2+30+5].Events = []server.Event{
+			{
+				StartTime:   time.Date(2024, 10, 2, 0, 0, 0, 0, time.Local),
+				EndTime:     time.Date(2024, 10, 3, 0, 0, 0, 0, time.Local),
+				Summary:     "Barbie's birthday",
+				Description: "bring cake",
+			},
+		}
+		return c
+	}()
 )

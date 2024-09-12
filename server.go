@@ -21,25 +21,11 @@ const (
 
 type Opt func(*Server)
 
-// WithUnsafeClient allows the HTTP client to be set. No client other than the
-// default is safe to use.
-func WithUnsafeClient(c *http.Client) Opt {
-	return func(s *Server) {
-		s.client = c
-	}
-}
-
 // MaxConns sets the total max upstream connections the server can make. The
 // default is 8.
 func MaxConns(c int) Opt {
 	return func(s *Server) {
 		s.semaphore = make(chan struct{}, c)
-	}
-}
-
-func WithClock(f func() time.Time) Opt {
-	return func(s *Server) {
-		s.now = f
 	}
 }
 
@@ -57,7 +43,7 @@ func New(r *gin.Engine, opts ...Opt) *Server {
 			Transport: &http.Transport{
 				DialContext: publicUnicastOnlyDialContext,
 			},
-			CheckRedirect: noRedirect,
+			CheckRedirect: noRedirect, // TODO allow redirect
 		},
 		semaphore: make(chan struct{}, defaultMaxConns),
 		now:       time.Now,
@@ -102,19 +88,82 @@ func (s *Server) HandleWebcal(c *gin.Context) {
 		return
 	}
 
-	upstreamURLString := c.Query("cal")
-	upstreamURL, err := s.parseCalendarURL(upstreamURLString)
+	downstream, err := s.getProcessedCal(c,
+		c.Query("cal"),
+		c.Query("mrg"),
+		c.QueryArray("inc"),
+		c.QueryArray("exc"),
+	)
 	if err != nil {
-		_ = c.AbortWithError(http.StatusBadRequest,
-			fmt.Errorf("error validating calendar URL: %s", err))
+		// getProcessedCal aborts all errors
 		return
 	}
 
-	includes, err := parseMatchers(c.QueryArray("inc"))
+	c.Header("Content-Type", "text/calendar")
+	_ = downstream.SerializeTo(c.Writer)
+}
+
+func (s *Server) HandleIndex(c *gin.Context) {
+	c.HTML(http.StatusOK, "index", nil)
+}
+
+func isBrowser(c *gin.Context) bool {
+	if c.Request.Method != http.MethodGet {
+		return false
+	}
+
+	for _, mediaType := range strings.Split(c.GetHeader("Accept"), ",") {
+		if mediaType == "text/html" {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Server) HandleCalendar(c *gin.Context) {
+	var (
+		downstream *ics.Calendar
+		err        error
+	)
+	if cal := c.PostForm("cal"); cal != "" {
+		downstream, err = s.getProcessedCal(c,
+			cal,
+			c.PostForm("mrg"),
+			c.PostFormArray("inc"),
+			c.PostFormArray("exc"),
+		)
+		if err != nil {
+			// getProcessedCal aborts all errors
+			return
+		}
+	}
+
+	userTime := s.now().UTC()
+	tz, err := time.LoadLocation(c.PostForm("user-tz"))
+	if nil == err {
+		log(c).Debugf("Using user time zone %q", tz)
+		userTime = userTime.In(tz)
+	} else {
+		log(c).Warnf("Failed to parse user time zone: %s, using UTC.", err)
+	}
+
+	c.HTML(http.StatusOK, "calendar", newCalendar(c, ViewMonth, userTime, downstream))
+}
+
+// TODO move some funcs around
+func (s *Server) getProcessedCal(c *gin.Context, url, mrg string, inc, exc []string) (*ics.Calendar, error) {
+	upstreamURL, err := s.parseCalendarURL(url)
 	if err != nil {
-		_ = c.AbortWithError(http.StatusBadRequest,
-			fmt.Errorf("error parsing inc argument %q: %s", c.QueryArray("inc"), err))
-		return
+		err = fmt.Errorf("error validating calendar URL: %s", err)
+		_ = c.AbortWithError(http.StatusBadRequest, err)
+		return nil, err
+	}
+
+	includes, err := parseMatchers(inc)
+	if err != nil {
+		err = fmt.Errorf("error parsing inc argument %q: %s", c.QueryArray("inc"), err)
+		_ = c.AbortWithError(http.StatusBadRequest, err)
+		return nil, err
 	}
 	if len(includes) == 0 {
 		includes = append(includes, matcher{
@@ -122,28 +171,28 @@ func (s *Server) HandleWebcal(c *gin.Context) {
 			expression: regexp.MustCompile(".*"),
 		})
 	}
-	excludes, err := parseMatchers(c.QueryArray("exc"))
+	excludes, err := parseMatchers(exc)
 	if err != nil {
-		_ = c.AbortWithError(http.StatusBadRequest,
-			fmt.Errorf("error parsing exc argument %q: %s", c.QueryArray("exc"), err))
-		return
+		err = fmt.Errorf("error parsing exc argument %q: %s", c.QueryArray("exc"), err)
+		_ = c.AbortWithError(http.StatusBadRequest, err)
+		return nil, err
 	}
 
 	var merge bool
-	if mergeArg := c.Query("mrg"); mergeArg != "" {
-		merge, err = strconv.ParseBool(mergeArg)
+	if mrg != "" {
+		merge, err = strconv.ParseBool(mrg)
 		if err != nil {
-			_ = c.AbortWithError(http.StatusBadRequest,
-				fmt.Errorf("error parsing mrg argument: %s", err))
-			return
+			err = fmt.Errorf("error parsing mrg argument: %s", err)
+			_ = c.AbortWithError(http.StatusBadRequest, err)
+			return nil, err
 		}
 	}
 
 	upstream, err := s.fetch(upstreamURL)
 	if err != nil {
-		_ = c.AbortWithError(http.StatusBadGateway,
-			fmt.Errorf("error fetching calendar %q: %s", upstreamURL, err))
-		return
+		err = fmt.Errorf("error fetching calendar %q: %s", upstreamURL, err)
+		_ = c.AbortWithError(http.StatusBadGateway, err)
+		return nil, err
 	}
 
 	downstream := ics.NewCalendar()
@@ -174,17 +223,17 @@ func (s *Server) HandleWebcal(c *gin.Context) {
 		return startI.Before(startJ)
 	})
 	if err != nil {
-		_ = c.AbortWithError(http.StatusBadRequest,
-			fmt.Errorf("error sorting events: %s", err))
-		return
+		err = fmt.Errorf("error sorting events: %s", err)
+		_ = c.AbortWithError(http.StatusBadRequest, err)
+		return nil, err
 	}
 
 	if merge {
 		events, err = mergeEvents(events)
 		if err != nil {
-			_ = c.AbortWithError(http.StatusBadRequest,
-				fmt.Errorf("error merging events: %s", err))
-			return
+			err = fmt.Errorf("error merging events: %s", err)
+			_ = c.AbortWithError(http.StatusBadRequest, err)
+			return nil, err
 		}
 	}
 
@@ -192,37 +241,5 @@ func (s *Server) HandleWebcal(c *gin.Context) {
 		downstream.AddVEvent(event)
 	}
 
-	c.Header("Content-Type", "text/calendar")
-	_ = downstream.SerializeTo(c.Writer)
-}
-
-func (s *Server) HandleIndex(c *gin.Context) {
-	c.HTML(http.StatusOK, "index", nil)
-}
-
-func isBrowser(c *gin.Context) bool {
-	if c.Request.Method != http.MethodGet {
-		return false
-	}
-
-	for _, mediaType := range strings.Split(c.GetHeader("Accept"), ",") {
-		if mediaType == "text/html" {
-			return true
-		}
-	}
-	return false
-}
-
-func (s *Server) HandleCalendar(c *gin.Context) {
-	userTime := s.now().UTC()
-
-	tz, err := time.LoadLocation(c.PostForm("user-tz"))
-	if nil == err {
-		log(c).Debugf("Using user time zone %q", tz)
-		userTime = userTime.In(tz)
-	} else {
-		log(c).Warnf("Failed to parse user time zone: %s, using UTC.", err)
-	}
-
-	c.HTML(http.StatusOK, "calendar", newCalendar(ViewMonth, userTime))
+	return downstream, nil
 }

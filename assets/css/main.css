@@ -5,6 +5,7 @@
     --dark-bg: #ff6600;
     --light-grey: #eeeeee;
     --med-grey: #cccccc;
+    --med-blue: #0066ff;
 }
 
 * {
@@ -78,21 +79,28 @@ footer {
     border-color: var(--light-grey);
 }
 
+.day div {
+    white-space: nowrap;
+}
+
 .day-head {
-    border-radius: 0.25rem;
     background: var(--light-grey);
+    padding-left: 0.25rem;
+}
+
+.day-event {
+    border-radius: 0.25rem;
+    background: var(--med-blue);
     padding-left: 0.25rem;
 }
 
 .day-saturday .day-head,
 .day-sunday .day-head {
-    border-radius: 0.25rem;
     background: var(--med-grey);
     padding-left: 0.25rem;
 }
 
 .day-today .day-head {
-    border-radius: 0.25rem;
     background: var(--light-bg);
     padding-left: 0.25rem;
     color: white;

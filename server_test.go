@@ -220,7 +220,7 @@ func TestServer(t *testing.T) {
 			expectedTemplateObj: server.Calendar{
 				View:  server.ViewMonth,
 				Title: "September 2024",
-				Days:  month11september2024,
+				Days:  month11Sept2024,
 			},
 		},
 		"htmx_calendar_with_user_tz": {
@@ -239,7 +239,29 @@ func TestServer(t *testing.T) {
 			expectedTemplateObj: server.Calendar{
 				View:  server.ViewMonth,
 				Title: "September 2024",
-				Days:  month11september2024,
+				Days:  month11Sept2024,
+			},
+		},
+		"htmx_calendar_with_events": {
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			inputBody: []byte(url.Values{
+				"cal": []string{"webcal://CALURL"},
+			}.Encode()),
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
+				server.WithUnsafeClient(&http.Client{}),
+			},
+			upstreamStatus:       http.StatusOK,
+			upstreamBody:         events11Sept2024,
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Calendar{
+				View:  server.ViewMonth,
+				Title: "September 2024",
+				Days:  month11Sept2024WithEvents,
 			},
 		},
 	} {
@@ -258,9 +280,9 @@ func TestServer(t *testing.T) {
 
 			upstreamURL, err := url.Parse(upstreamServer.URL)
 			require.NoError(t, err)
-			inputURL := "http://localhost/" + strings.Replace(test.inputQuery, "CALURL", upstreamURL.Host, 1)
+			inputURL := "http://localhost/" + strings.Replace(test.inputQuery, "CALURL", upstreamURL.Host, -1)
 			t.Log(inputURL)
-			r := httptest.NewRequest(test.inputMethod, inputURL, bytes.NewReader(test.inputBody))
+			r := httptest.NewRequest(test.inputMethod, inputURL, bytes.NewReader(bytes.Replace(test.inputBody, []byte("CALURL"), []byte(upstreamURL.Host), -1)))
 			for k, v := range test.inputHeaders {
 				r.Header.Set(k, v)
 			}

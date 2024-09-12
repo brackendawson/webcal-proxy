@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"html/template"
+	"time"
 )
 
 var (
@@ -15,6 +16,9 @@ var (
 	funcs template.FuncMap = template.FuncMap{
 		"errorf": func(format string, args ...any) (any, error) {
 			return nil, fmt.Errorf(format, args...)
+		},
+		"formatTime": func(format string, t time.Time) string {
+			return t.Format(format)
 		},
 	}
 )
