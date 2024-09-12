@@ -62,30 +62,6 @@ func New(r *gin.Engine, opts ...Opt) *Server {
 	return s
 }
 
-// fetch fetches the given url from the given IP address
-func (s *Server) fetch(url string) (*ics.Calendar, error) {
-	s.semaphore <- struct{}{}
-	defer func() { <-s.semaphore }()
-
-	upstream, err := s.client.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer upstream.Body.Close()
-	if upstream.StatusCode < 200 || upstream.StatusCode >= 300 {
-		return nil, fmt.Errorf("bad status: %s", upstream.Status)
-	}
-	mediaType, _, err := mime.ParseMediaType(upstream.Header.Get("Content-Type"))
-	if err != nil {
-		return nil, fmt.Errorf("error parsing content type: %w", err)
-	}
-	if mediaType != "text/calendar" {
-		return nil, errors.New("not a calendar")
-	}
-
-	return ics.ParseCalendar(upstream.Body)
-}
-
 func (s *Server) HandleWebcal(c *gin.Context) {
 	if isBrowser(c) {
 		s.HandleIndex(c)
@@ -107,10 +83,6 @@ func (s *Server) HandleWebcal(c *gin.Context) {
 	_ = downstream.SerializeTo(c.Writer)
 }
 
-func (s *Server) HandleIndex(c *gin.Context) {
-	c.HTML(http.StatusOK, "index", nil)
-}
-
 func isBrowser(c *gin.Context) bool {
 	if c.Request.Method != http.MethodGet {
 		return false
@@ -122,6 +94,10 @@ func isBrowser(c *gin.Context) bool {
 		}
 	}
 	return false
+}
+
+func (s *Server) HandleIndex(c *gin.Context) {
+	c.HTML(http.StatusOK, "index", nil)
 }
 
 func (s *Server) HandleCalendar(c *gin.Context) {
@@ -154,7 +130,6 @@ func (s *Server) HandleCalendar(c *gin.Context) {
 	c.HTML(http.StatusOK, "calendar", newCalendar(c, ViewMonth, userTime, downstream))
 }
 
-// TODO move some funcs around
 func (s *Server) getProcessedCal(c *gin.Context, url, mrg string, inc, exc []string) (*ics.Calendar, error) {
 	upstreamURL, err := s.parseCalendarURL(url)
 	if err != nil {
@@ -246,4 +221,28 @@ func (s *Server) getProcessedCal(c *gin.Context, url, mrg string, inc, exc []str
 	}
 
 	return downstream, nil
+}
+
+// fetch fetches the given url from the given IP address
+func (s *Server) fetch(url string) (*ics.Calendar, error) {
+	s.semaphore <- struct{}{}
+	defer func() { <-s.semaphore }()
+
+	upstream, err := s.client.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer upstream.Body.Close()
+	if upstream.StatusCode < 200 || upstream.StatusCode >= 300 {
+		return nil, fmt.Errorf("bad status: %s", upstream.Status)
+	}
+	mediaType, _, err := mime.ParseMediaType(upstream.Header.Get("Content-Type"))
+	if err != nil {
+		return nil, fmt.Errorf("error parsing content type: %w", err)
+	}
+	if mediaType != "text/calendar" {
+		return nil, errors.New("not a calendar")
+	}
+
+	return ics.ParseCalendar(upstream.Body)
 }
