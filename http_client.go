@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"time"
 )
 
@@ -54,4 +55,14 @@ func publicUnicastOnlyDialContext(ctx context.Context, network, addr string) (ne
 	}
 
 	return nil, fmt.Errorf("failed to dial: %q", dialErrs)
+}
+
+type WithUserAgent struct {
+	http.RoundTripper
+	UserAgent string
+}
+
+func (w *WithUserAgent) RoundTrip(r *http.Request) (*http.Response, error) {
+	r.Header.Set("User-Agent", w.UserAgent)
+	return w.RoundTripper.RoundTrip(r)
 }

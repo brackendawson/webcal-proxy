@@ -20,6 +20,11 @@ const (
 	defaultMaxConns = 8
 )
 
+var (
+	serverName    = "webcal-proxy"
+	serverVersion = "1.2.0+dev"
+)
+
 type Opt func(*Server)
 
 // MaxConns sets the total max upstream connections the server can make. The
@@ -41,8 +46,11 @@ func New(r *gin.Engine, opts ...Opt) *Server {
 	s := &Server{
 		client: &http.Client{
 			Timeout: requestTimeoutSecs * time.Second,
-			Transport: &http.Transport{
-				DialContext: publicUnicastOnlyDialContext,
+			Transport: &WithUserAgent{
+				RoundTripper: &http.Transport{
+					DialContext: publicUnicastOnlyDialContext,
+				},
+				UserAgent: fmt.Sprintf("%s/%s", serverName, serverVersion),
 			},
 		},
 		semaphore: make(chan struct{}, defaultMaxConns),

@@ -55,6 +55,19 @@ func TestServer(t *testing.T) {
 			expectedStatus:   http.StatusOK,
 			expectedCalendar: calExample,
 		},
+		"userAgent": {
+			inputMethod: http.MethodGet,
+			inputQuery:  "?cal=http://CALURL",
+			serverOpts: []server.Opt{
+				server.WithUnsafeClient(&http.Client{
+					Transport: &server.WithUserAgent{RoundTripper: &http.Transport{}, UserAgent: "blah/1"},
+				}),
+			},
+			upstreamServer: func(w http.ResponseWriter, r *http.Request) {
+				require.Equal(t, "blah/1", r.Header.Get("User-Agent"))
+			},
+			expectedStatus: http.StatusBadGateway,
+		},
 		"utf8": {
 			inputMethod: http.MethodGet,
 			inputQuery:  "?cal=http://CALURL",
