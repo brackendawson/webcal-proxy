@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"fmt"
+	"mime"
 	"net/http"
 	"regexp"
 	"sort"
@@ -43,7 +44,6 @@ func New(r *gin.Engine, opts ...Opt) *Server {
 			Transport: &http.Transport{
 				DialContext: publicUnicastOnlyDialContext,
 			},
-			CheckRedirect: noRedirect, // TODO allow redirect
 		},
 		semaphore: make(chan struct{}, defaultMaxConns),
 		now:       time.Now,
@@ -75,7 +75,11 @@ func (s *Server) fetch(url string) (*ics.Calendar, error) {
 	if upstream.StatusCode < 200 || upstream.StatusCode >= 300 {
 		return nil, fmt.Errorf("bad status: %s", upstream.Status)
 	}
-	if upstream.Header.Get("Content-Type") != "text/calendar" {
+	mediaType, _, err := mime.ParseMediaType(upstream.Header.Get("Content-Type"))
+	if err != nil {
+		return nil, fmt.Errorf("error parsing content type: %w", err)
+	}
+	if mediaType != "text/calendar" {
 		return nil, errors.New("not a calendar")
 	}
 

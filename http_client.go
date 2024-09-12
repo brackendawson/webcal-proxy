@@ -2,10 +2,8 @@ package server
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
-	"net/http"
 	"time"
 )
 
@@ -17,10 +15,6 @@ var (
 	dialer   = &net.Dialer{}
 	resolver = &net.Resolver{}
 )
-
-func noRedirect(*http.Request, []*http.Request) error {
-	return errors.New("redirect is not allowed")
-}
 
 func publicUnicastOnlyDialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	host, port, err := net.SplitHostPort(addr)

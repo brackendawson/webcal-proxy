@@ -35,9 +35,7 @@ func TestServer(t *testing.T) {
 		serverOpts []server.Opt
 
 		// upstream server double
-		upstreamStatus  int
-		upstreamHeaders map[string]string
-		upstreamBody    []byte
+		upstreamServer http.HandlerFunc
 
 		// assertions
 		expectedStatus       int
@@ -53,25 +51,63 @@ func TestServer(t *testing.T) {
 				server.WithUnsafeClient(&http.Client{}),
 				server.MaxConns(1),
 			},
-			upstreamStatus:   http.StatusOK,
-			upstreamBody:     calExample,
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, calExample),
 			expectedStatus:   http.StatusOK,
 			expectedCalendar: calExample,
+		},
+		"utf8": {
+			inputMethod: http.MethodGet,
+			inputQuery:  "?cal=http://CALURL",
+			serverOpts: []server.Opt{
+				server.WithUnsafeClient(&http.Client{}),
+				server.MaxConns(1),
+			},
+			upstreamServer:   mockWebcalServer(http.StatusOK, map[string]string{"Content-Type": "text/calendar; charset=utf-8"}, calExample),
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: calExample,
+		},
+		"not_utf8": {
+			inputMethod: http.MethodGet,
+			inputQuery:  "?cal=http://CALURL",
+			serverOpts: []server.Opt{
+				server.WithUnsafeClient(&http.Client{}),
+				server.MaxConns(1),
+			},
+			upstreamServer: mockWebcalServer(http.StatusOK, map[string]string{"Content-Type": ""}, calExample),
+			expectedStatus: http.StatusBadGateway,
+		},
+		"not_calendar": {
+			inputMethod: http.MethodGet,
+			inputQuery:  "?cal=http://CALURL",
+			serverOpts: []server.Opt{
+				server.WithUnsafeClient(&http.Client{}),
+				server.MaxConns(1),
+			},
+			upstreamServer: mockWebcalServer(http.StatusOK, map[string]string{"Content-Type": "text/html"}, calExample),
+			expectedStatus: http.StatusBadGateway,
+		},
+		"not_working": {
+			inputMethod: http.MethodGet,
+			inputQuery:  "?cal=http://CALURL",
+			serverOpts: []server.Opt{
+				server.WithUnsafeClient(&http.Client{}),
+				server.MaxConns(1),
+			},
+			upstreamServer: mockWebcalServer(http.StatusInternalServerError, nil, calExample),
+			expectedStatus: http.StatusBadGateway,
 		},
 		"no-cal": {
 			inputMethod:    http.MethodGet,
 			inputQuery:     "?not=right",
 			serverOpts:     []server.Opt{server.WithUnsafeClient(&http.Client{})},
-			upstreamStatus: http.StatusOK,
-			upstreamBody:   calExample,
+			upstreamServer: mockWebcalServer(http.StatusOK, nil, calExample),
 			expectedStatus: http.StatusBadRequest,
 		},
 		"includeRotation": {
 			inputMethod:      http.MethodGet,
 			inputQuery:       "?cal=http://CALURL&inc=SUMMARY=Rotation",
 			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
-			upstreamStatus:   http.StatusOK,
-			upstreamBody:     calExample,
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, calExample),
 			expectedStatus:   http.StatusOK,
 			expectedCalendar: calOnlyRotation,
 		},
@@ -79,8 +115,7 @@ func TestServer(t *testing.T) {
 			inputMethod:      http.MethodGet,
 			inputQuery:       "?cal=http://CALURL&exc=SUMMARY=Secondary",
 			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
-			upstreamStatus:   http.StatusOK,
-			upstreamBody:     calExample,
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, calExample),
 			expectedStatus:   http.StatusOK,
 			expectedCalendar: calWithoutSecondary,
 		},
@@ -88,52 +123,45 @@ func TestServer(t *testing.T) {
 			inputMethod:      http.MethodGet,
 			inputQuery:       `?cal=http://CALURL&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
 			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
-			upstreamStatus:   http.StatusOK,
-			upstreamBody:     calExample,
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, calExample),
 			expectedStatus:   http.StatusOK,
 			expectedCalendar: calMay22NotRotation,
 		},
 		"local": {
 			inputMethod:    http.MethodGet,
 			inputQuery:     `?cal=http://127.0.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			upstreamStatus: http.StatusOK,
-			upstreamBody:   calExample,
-			expectedStatus: 502,
+			upstreamServer: mockWebcalServer(http.StatusOK, nil, calExample),
+			expectedStatus: http.StatusBadGateway,
 		},
 		"private": {
 			inputMethod:    http.MethodGet,
 			inputQuery:     `?cal=http://192.168.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			upstreamStatus: http.StatusOK,
-			upstreamBody:   calExample,
-			expectedStatus: 502,
+			upstreamServer: mockWebcalServer(http.StatusOK, nil, calExample),
+			expectedStatus: http.StatusBadGateway,
 		},
 		"vpn": {
 			inputMethod:    http.MethodGet,
 			inputQuery:     `?cal=http://10.0.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			upstreamStatus: http.StatusOK,
-			upstreamBody:   calExample,
-			expectedStatus: 502,
+			upstreamServer: mockWebcalServer(http.StatusOK, nil, calExample),
+			expectedStatus: http.StatusBadGateway,
 		},
 		"localhost": {
 			inputMethod:    http.MethodGet,
 			inputQuery:     `?cal=http://localhost:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			upstreamStatus: http.StatusOK,
-			upstreamBody:   calExample,
-			expectedStatus: 502,
+			upstreamServer: mockWebcalServer(http.StatusOK, nil, calExample),
+			expectedStatus: http.StatusBadGateway,
 		},
 		"no-port-localhost": {
 			inputMethod:    http.MethodGet,
 			inputQuery:     `?cal=http://localhost&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			upstreamStatus: http.StatusOK,
-			upstreamBody:   calExample,
-			expectedStatus: 502,
+			upstreamServer: mockWebcalServer(http.StatusOK, nil, calExample),
+			expectedStatus: http.StatusBadGateway,
 		},
 		"webcal": {
 			inputMethod:      http.MethodGet,
 			inputQuery:       `?cal=webcal://CALURL`,
 			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
-			upstreamStatus:   http.StatusOK,
-			upstreamBody:     calExample,
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, calExample),
 			expectedStatus:   http.StatusOK,
 			expectedCalendar: calExample,
 		},
@@ -141,29 +169,19 @@ func TestServer(t *testing.T) {
 			inputMethod:    http.MethodGet,
 			inputQuery:     `?cal=ftp://CALURL`,
 			serverOpts:     []server.Opt{server.WithUnsafeClient(&http.Client{})},
-			upstreamStatus: http.StatusOK,
-			upstreamBody:   calExample,
+			upstreamServer: mockWebcalServer(http.StatusOK, nil, calExample),
 			expectedStatus: http.StatusBadRequest,
-		},
-		"redirect": {
-			inputMethod: http.MethodGet,
-			inputQuery:  `?cal=webcal://CALURL`,
-			// serverOpts:      []server.Opt{server.WithUnsafeClient(&http.Client{})},
-			upstreamStatus:  http.StatusMovedPermanently,
-			upstreamHeaders: map[string]string{"Location": "http://192.168.0.1"},
-			expectedStatus:  502,
 		},
 		"unresolvable": {
 			inputMethod:    http.MethodGet,
 			inputQuery:     "?cal=webcal://not.a.domain",
-			expectedStatus: 502,
+			expectedStatus: http.StatusBadGateway,
 		},
 		"sortsevents": {
 			inputMethod:      http.MethodGet,
 			inputQuery:       "?cal=http://CALURL",
 			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
-			upstreamStatus:   http.StatusOK,
-			upstreamBody:     calShuffled,
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, calShuffled),
 			expectedStatus:   http.StatusOK,
 			expectedCalendar: calExample,
 		},
@@ -171,16 +189,14 @@ func TestServer(t *testing.T) {
 			inputMethod:    http.MethodGet,
 			inputQuery:     "?cal=http://CALURL",
 			serverOpts:     []server.Opt{server.WithUnsafeClient(&http.Client{})},
-			upstreamStatus: http.StatusOK,
-			upstreamBody:   calEventWithNoStart,
+			upstreamServer: mockWebcalServer(http.StatusOK, nil, calEventWithNoStart),
 			expectedStatus: http.StatusBadRequest,
 		},
 		"dontmerge": {
 			inputMethod:      http.MethodGet,
 			inputQuery:       "?cal=http://CALURL",
 			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
-			upstreamStatus:   http.StatusOK,
-			upstreamBody:     calUnmerged,
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, calUnmerged),
 			expectedStatus:   http.StatusOK,
 			expectedCalendar: calUnmerged,
 		},
@@ -188,8 +204,7 @@ func TestServer(t *testing.T) {
 			inputMethod:      http.MethodGet,
 			inputQuery:       "?cal=http://CALURL&mrg=true",
 			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
-			upstreamStatus:   http.StatusOK,
-			upstreamBody:     calUnmerged,
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, calUnmerged),
 			expectedStatus:   http.StatusOK,
 			expectedCalendar: calMerged,
 		},
@@ -254,8 +269,7 @@ func TestServer(t *testing.T) {
 				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
 				server.WithUnsafeClient(&http.Client{}),
 			},
-			upstreamStatus:       http.StatusOK,
-			upstreamBody:         events11Sept2024,
+			upstreamServer:       mockWebcalServer(http.StatusOK, nil, events11Sept2024),
 			expectedStatus:       http.StatusOK,
 			expectedTemplateName: "calendar",
 			expectedTemplateObj: server.Calendar{
@@ -268,14 +282,7 @@ func TestServer(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				for k, v := range test.upstreamHeaders {
-					w.Header().Set(k, v)
-				}
-				w.Header().Set("Content-Type", "text/calendar")
-				w.WriteHeader(test.upstreamStatus)
-				_, _ = w.Write(test.upstreamBody)
-			}))
+			upstreamServer := httptest.NewServer(test.upstreamServer)
 			defer upstreamServer.Close()
 
 			upstreamURL, err := url.Parse(upstreamServer.URL)
@@ -317,6 +324,17 @@ func TestServer(t *testing.T) {
 				require.Equal(t, test.expectedBody, w.Body.Bytes())
 			}
 		})
+	}
+}
+
+func mockWebcalServer(code int, headers map[string]string, calendar []byte) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/calendar")
+		for k, v := range headers {
+			w.Header().Set(k, v)
+		}
+		w.WriteHeader(code)
+		_, _ = w.Write(calendar)
 	}
 }
 
