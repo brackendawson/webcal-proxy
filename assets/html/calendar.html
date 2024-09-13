@@ -21,7 +21,7 @@
             <div class="day-head">{{ $day.Number }}</div>
             {{ range $day.Events }}
                 <div class="day-event">
-                    {{ formatTime "15:04" .StartTime }} {{ .Summary }}
+                    <span class="event-time">{{ formatTime "15:04" .StartTime }}</span><span class="event-summary">{{ .Summary }}</summary>
                 </div>
             {{ end }}
         </div>

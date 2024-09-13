@@ -55,6 +55,7 @@ footer {
     display: flex;
     flex-wrap: wrap;
     margin-block: 1rem;
+    font-size: 0.8rem;
 }
 
 #calendar * {
@@ -73,7 +74,7 @@ footer {
 }
 
 .day {
-    height: 6rem;
+    height: 6.3em;
     width: calc(100%/7);
     border: solid 0.05rem;
     border-color: var(--light-grey);
@@ -85,13 +86,34 @@ footer {
 
 .day-head {
     background: var(--light-grey);
-    padding-left: 0.25rem;
+    padding-left: 0.25em;
 }
 
 .day-event {
-    border-radius: 0.25rem;
+    border-radius: 0.25em;
     background: var(--med-blue);
-    padding-left: 0.25rem;
+    padding-left: 0.25em;
+    margin-bottom: 0.1em;
+}
+
+.event-summary {
+    margin-left: 0.4em;
+}
+
+:nth-child(4 of .day-event) {
+    margin-top: -1.6em;
+    position: relative;
+    z-index: 1;
+    text-align: right;
+    padding-right: 0.25em;
+}
+
+:nth-child(4 of .day-event) span {
+    display: none;
+}
+
+:nth-child(4 of .day-event):before {
+    content: "more..."
 }
 
 .day-saturday .day-head,
@@ -107,5 +129,5 @@ footer {
 }
 
 .day-spill * {
-    opacity: 25%;
+    opacity: 50%;
 }
