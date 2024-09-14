@@ -131,3 +131,31 @@ footer {
 .day-spill * {
     opacity: 50%;
 }
+
+.loading-message {
+    display: inline-block;
+    width: 100%;
+    text-align: center;
+}
+
+.htmx-indicator {
+    opacity: 0%;
+}
+
+.htmx-request .htmx-indicator {
+    animation: pulse 1s linear 0s infinite;
+}
+
+.htmx-request.htmx-indicator {
+    animation: pulse 1s linear 0s infinite;
+}
+
+@keyframes pulse {
+    50% {
+        opacity: 0%;
+    }
+
+    100% {
+        opacity: 100%;
+    }
+}
