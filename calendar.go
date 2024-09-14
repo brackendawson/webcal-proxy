@@ -57,9 +57,17 @@ func appendDay(c *gin.Context, s []Day, focus time.Time, downstream *ics.Calenda
 				log(c).Warnf("Invalid event start time: %s", err)
 				continue
 			}
+			// Date only (no zone) events are parsed to midnight on time.Local,
+			// don't convert this to user's time zone.
+			if newEvent.StartTime.Location() != time.Local {
+				newEvent.StartTime = newEvent.StartTime.In(focus.Location())
+			}
 			if newEvent.EndTime, err = event.GetEndAt(); err != nil {
 				log(c).Warnf("Invalid event end time: %s", err) // TODO contribute a defined error here
 				continue
+			}
+			if newEvent.EndTime.Location() != time.Local {
+				newEvent.EndTime = newEvent.EndTime.In(focus.Location())
 			}
 
 			if newEvent.StartTime.Year() != d.Year() ||

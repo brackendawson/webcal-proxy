@@ -312,6 +312,36 @@ func TestServer(t *testing.T) {
 				},
 			},
 		},
+		"htmx_calendar_with_events_and_local_time": {
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			inputBody: []byte(url.Values{
+				"cal":     []string{"webcal://CALURL"},
+				"user-tz": []string{"Australia/Sydney"},
+			}.Encode()),
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
+				server.WithUnsafeClient(&http.Client{}),
+			},
+			upstreamServer:       mockWebcalServer(http.StatusOK, nil, fixtures.Events11Sept2024),
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Calendar{
+				View:  server.ViewMonth,
+				Title: "September 2024",
+				Days:  month11Sept2024WithEventsSydney,
+				Cache: &cache.Webcal{
+					URL: "webcal://CALURL",
+					Calendar: func() *ics.Calendar {
+						c, err := ics.ParseCalendar(bytes.NewReader(fixtures.Events11Sept2024))
+						require.NoError(t, err)
+						return c
+					}(),
+				},
+			},
+		},
 		"input_exc_validation_before_upstream_request": {
 			inputMethod: http.MethodPost,
 			inputHeaders: map[string]string{
