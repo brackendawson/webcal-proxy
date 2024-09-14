@@ -8,21 +8,12 @@ import (
 	ics "github.com/arran4/golang-ical"
 )
 
-type matchGroup []matcher
-
-func (m matchGroup) matches(event *ics.VEvent) bool {
-	for _, matcher := range m {
-		if matcher.expression.Match([]byte(event.GetProperty(matcher.property).Value)) {
-			return true
-		}
-	}
-	return false
-}
-
 type matcher struct {
 	property   ics.ComponentProperty
 	expression *regexp.Regexp
 }
+
+type matchGroup []matcher
 
 func parseMatchers(m []string) (matchGroup, error) {
 	matches := make(matchGroup, 0, len(m))
@@ -41,4 +32,13 @@ func parseMatchers(m []string) (matchGroup, error) {
 		})
 	}
 	return matches, nil
+}
+
+func (m matchGroup) matches(event *ics.VEvent) bool {
+	for _, matcher := range m {
+		if matcher.expression.Match([]byte(event.GetProperty(matcher.property).Value)) {
+			return true
+		}
+	}
+	return false
 }

@@ -1,21 +1,22 @@
-package server_test
+package cache_test
 
 import (
 	"bytes"
 	"testing"
 
 	ics "github.com/arran4/golang-ical"
-	server "github.com/brackendawson/webcal-proxy"
+	"github.com/brackendawson/webcal-proxy/cache"
+	"github.com/brackendawson/webcal-proxy/fixtures"
 	"github.com/stretchr/testify/require"
 )
 
-func TestCache(t *testing.T) {
+func TestWebcal(t *testing.T) {
 	t.Parallel()
 
-	initial := server.Cache{
+	initial := cache.Webcal{
 		URL: "webcal://alpaca-racing.com/schedule",
 		Calendar: func() *ics.Calendar {
-			c, err := ics.ParseCalendar(bytes.NewReader(calExample))
+			c, err := ics.ParseCalendar(bytes.NewReader(fixtures.CalExample))
 			require.NoError(t, err)
 			return c
 		}(),
@@ -24,14 +25,14 @@ func TestCache(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Log(string(encoded))
-	require.Less(t, len(encoded), len(calExample))
+	require.Less(t, len(encoded), len(fixtures.CalExample))
 
-	decoded, err := server.ParseCache(encoded)
+	decoded, err := cache.ParseWebcal(encoded)
 	require.NoError(t, err)
 	require.Equal(t, initial, decoded)
 }
 
-func TestDecodeCacheErrors(t *testing.T) {
+func TestParseWebcalErrors(t *testing.T) {
 	for name, test := range map[string]struct {
 		input        string
 		requireError func(require.TestingT, error, ...any)
@@ -43,7 +44,7 @@ func TestDecodeCacheErrors(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			_, err := server.ParseCache(test.input)
+			_, err := cache.ParseWebcal(test.input)
 			test.requireError(t, err)
 		})
 	}

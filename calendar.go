@@ -1,13 +1,11 @@
 package server
 
 import (
-	"net/http"
-	"net/url"
-	"slices"
 	"strings"
 	"time"
 
 	ics "github.com/arran4/golang-ical"
+	"github.com/brackendawson/webcal-proxy/cache"
 	"github.com/gin-gonic/gin"
 )
 
@@ -91,7 +89,7 @@ type Calendar struct {
 	View  calendarView
 	Title string
 	Days  []Day
-	Cache *Cache
+	Cache *cache.Webcal
 	Error string
 }
 
@@ -120,97 +118,4 @@ func newCalendar(c *gin.Context, view calendarView, focus time.Time, downstream 
 
 func mondayIndexWeekday(d time.Weekday) int {
 	return ((int(d)-1)%7 + 7) % 7
-}
-
-func parseURLScheme(c *gin.Context, addr string) (string, error) {
-	addrURL, err := url.Parse(addr)
-	if err != nil {
-		log(c).Warnf("invalid calendar url: %s", err)
-		return "", newErrorWithMessage(
-			http.StatusBadRequest,
-			"Bad url. Include a protocol, host, and path, eg: webcal://example.com/events",
-		)
-	}
-
-	if addrURL.Scheme == "webcal" {
-		addrURL.Scheme = "http"
-	}
-
-	if !slices.Contains([]string{"http", "https"}, addrURL.Scheme) {
-		return "", newErrorWithMessage(
-			http.StatusBadRequest,
-			"Unsupported protocol scheme, url should be webcal, https, or http.",
-		)
-	}
-
-	return addrURL.String(), nil
-}
-
-// mergeEvents will perform the merge algorithm on a slice of events sorted by
-// start time.
-func mergeEvents(events []*ics.VEvent) []*ics.VEvent {
-	var (
-		newEvents   []*ics.VEvent
-		lastEndTime time.Time
-	)
-
-	for _, event := range events {
-		startTime, _ := event.GetStartAt()
-		endTime, _ := event.GetEndAt()
-		if endTime.Before(startTime) {
-			endTime = startTime
-		}
-
-		if len(newEvents) == 0 || !startTime.Before(lastEndTime) {
-			lastEndTime = endTime
-			newEvents = append(newEvents, event)
-			continue
-		}
-
-		lastEvent := newEvents[len(newEvents)-1]
-
-		lastSummary := lastEvent.GetProperty(ics.ComponentPropertySummary)
-		newSummary := ""
-		if lastSummary != nil {
-			newSummary = lastSummary.Value
-		}
-		summary := event.GetProperty(ics.ComponentPropertySummary)
-		if summary != nil {
-			newSummary += " + "
-			newSummary += summary.Value
-		}
-		lastEvent.SetSummary(newSummary)
-
-		lastDescription := lastEvent.GetProperty(ics.ComponentPropertyDescription)
-		newDescription := ""
-		if lastDescription != nil {
-			newDescription = lastDescription.Value
-		}
-		description := event.GetProperty(ics.ComponentPropertyDescription)
-		if description != nil {
-			newDescription += "\n\n---\n"
-			if summary != nil {
-				newDescription += summary.Value + "\n"
-			}
-			newDescription += "\n"
-			newDescription += description.Value
-		}
-		if newDescription != "" {
-			lastEvent.SetProperty(ics.ComponentPropertyDescription, newDescription)
-		}
-
-		if endTime.After(lastEndTime) {
-			var props []ics.PropertyParameter
-			for k, v := range event.GetProperty(ics.ComponentPropertyDtEnd).ICalParameters {
-				props = append(props, &ics.KeyValues{
-					Key:   k,
-					Value: v,
-				})
-			}
-			lastEvent.SetProperty(ics.ComponentPropertyDtEnd, event.GetProperty(ics.ComponentPropertyDtEnd).Value, props...)
-			lastEndTime = endTime
-		}
-	}
-
-	return newEvents
 }

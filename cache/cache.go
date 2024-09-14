@@ -1,4 +1,4 @@
-package server
+package cache
 
 import (
 	"bytes"
@@ -10,34 +10,34 @@ import (
 	ics "github.com/arran4/golang-ical"
 )
 
-type Cache struct {
+type Webcal struct {
 	URL      string
 	Calendar *ics.Calendar
 }
 
-func ParseCache(c string) (Cache, error) {
+func ParseWebcal(c string) (Webcal, error) {
 	rawGzip, err := base64.StdEncoding.DecodeString(c)
 	if err != nil {
-		return Cache{}, fmt.Errorf("error decoding cache: %w", err)
+		return Webcal{}, fmt.Errorf("error decoding cache: %w", err)
 	}
 	r, err := gzip.NewReader(bytes.NewReader(rawGzip))
 	if err != nil {
-		return Cache{}, fmt.Errorf("error decoding cache headers: %w", err)
+		return Webcal{}, fmt.Errorf("error decoding cache headers: %w", err)
 	}
 	calendarBytes, err := io.ReadAll(r)
 	if err != nil {
-		return Cache{}, fmt.Errorf("error decoding cache body: %w", err)
+		return Webcal{}, fmt.Errorf("error decoding cache body: %w", err)
 	}
-	cache := Cache{
+	cache := Webcal{
 		URL: r.Name,
 	}
 	if cache.Calendar, err = ics.ParseCalendar(bytes.NewReader(calendarBytes)); err != nil {
-		return Cache{}, fmt.Errorf("error parsing cached calendar: %w", err)
+		return Webcal{}, fmt.Errorf("error parsing cached calendar: %w", err)
 	}
 	return cache, nil
 }
 
-func (c Cache) Encode() (string, error) {
+func (c Webcal) Encode() (string, error) {
 	b := bytes.NewBuffer([]byte{})
 	w, err := gzip.NewWriterLevel(b, gzip.BestCompression)
 	if err != nil {

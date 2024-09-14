@@ -1,7 +1,6 @@
 package server_test
 
 import (
-	_ "embed"
 	"fmt"
 	"time"
 
@@ -9,25 +8,6 @@ import (
 )
 
 var (
-	//go:embed fixtures/calExample.ics
-	calExample []byte
-	//go:embed fixtures/calOnlyRotation.ics
-	calOnlyRotation []byte
-	//go:embed fixtures/calWithoutSecondary.ics
-	calWithoutSecondary []byte
-	//go:embed fixtures/calMay22NotRotation.ics
-	calMay22NotRotation []byte
-	//go:embed fixtures/calShuffled.ics
-	calShuffled []byte
-	//go:embed fixtures/calEventWithNoStart.ics
-	calEventWithNoStart []byte
-	//go:embed fixtures/calEventWithNoStartSorted.ics
-	calEventWithNoStartSorted []byte
-	//go:embed fixtures/calUnmerged.ics
-	calUnmerged []byte
-	//go:embed fixtures/calMerged.ics
-	calMerged []byte
-
 	month11Sept2024 = []server.Day{
 		{Number: 26, Weekday: "monday", Spill: true},
 		{Number: 27, Weekday: "tuesday", Spill: true},
@@ -72,9 +52,8 @@ var (
 		{Number: 5, Weekday: "saturday", Spill: true},
 		{Number: 6, Weekday: "sunday", Spill: true},
 	}
-	//go:embed fixtures/events11Sept2024.ics
-	events11Sept2024 []byte
-	lon              = func() *time.Location {
+
+	tzLondon = func() *time.Location {
 		l, err := time.LoadLocation("Europe/London")
 		if err != nil {
 			panic(fmt.Errorf("Invalid time zone: %s", err))
@@ -86,8 +65,8 @@ var (
 		copy(c, month11Sept2024)
 		c[10+5].Events = []server.Event{
 			{
-				StartTime:   time.Date(2024, 9, 10, 12, 0, 0, 0, lon),
-				EndTime:     time.Date(2024, 9, 10, 12, 0, 0, 0, lon),
+				StartTime:   time.Date(2024, 9, 10, 12, 0, 0, 0, tzLondon),
+				EndTime:     time.Date(2024, 9, 10, 12, 0, 0, 0, tzLondon),
 				Summary:     "Meeting",
 				Location:    "Office",
 				Description: "Take notes",
@@ -95,8 +74,8 @@ var (
 		}
 		c[11+5].Events = []server.Event{
 			{
-				StartTime: time.Date(2024, 9, 11, 12, 0, 0, 0, lon),
-				EndTime:   time.Date(2024, 9, 11, 13, 0, 0, 0, lon),
+				StartTime: time.Date(2024, 9, 11, 12, 0, 0, 0, tzLondon),
+				EndTime:   time.Date(2024, 9, 11, 13, 0, 0, 0, tzLondon),
 				Summary:   "Picnic",
 				Location:  "Park",
 			},

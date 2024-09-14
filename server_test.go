@@ -12,6 +12,8 @@ import (
 	ics "github.com/arran4/golang-ical"
 	server "github.com/brackendawson/webcal-proxy"
 	"github.com/brackendawson/webcal-proxy/assets"
+	"github.com/brackendawson/webcal-proxy/cache"
+	"github.com/brackendawson/webcal-proxy/fixtures"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/render"
 	"github.com/sirupsen/logrus"
@@ -30,7 +32,7 @@ func TestServer(t *testing.T) {
 		inputQuery   string
 		inputHeaders map[string]string
 		inputBody    []byte
-		inputCache   *server.Cache
+		inputCache   *cache.Webcal
 
 		// server settings
 		serverOpts []server.Opt
@@ -52,9 +54,9 @@ func TestServer(t *testing.T) {
 				server.WithUnsafeClient(&http.Client{}),
 				server.MaxConns(1),
 			},
-			upstreamServer:   mockWebcalServer(http.StatusOK, nil, calExample),
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus:   http.StatusOK,
-			expectedCalendar: calExample,
+			expectedCalendar: fixtures.CalExample,
 		},
 		"input_inc_validated_before_upstream_request": {
 			inputMethod: http.MethodGet,
@@ -85,9 +87,9 @@ func TestServer(t *testing.T) {
 				server.WithUnsafeClient(&http.Client{}),
 				server.MaxConns(1),
 			},
-			upstreamServer:   mockWebcalServer(http.StatusOK, map[string]string{"Content-Type": "text/calendar; charset=utf-8"}, calExample),
+			upstreamServer:   mockWebcalServer(http.StatusOK, map[string]string{"Content-Type": "text/calendar; charset=utf-8"}, fixtures.CalExample),
 			expectedStatus:   http.StatusOK,
-			expectedCalendar: calExample,
+			expectedCalendar: fixtures.CalExample,
 		},
 		"not_utf8": {
 			inputMethod: http.MethodGet,
@@ -96,7 +98,7 @@ func TestServer(t *testing.T) {
 				server.WithUnsafeClient(&http.Client{}),
 				server.MaxConns(1),
 			},
-			upstreamServer: mockWebcalServer(http.StatusOK, map[string]string{"Content-Type": ""}, calExample),
+			upstreamServer: mockWebcalServer(http.StatusOK, map[string]string{"Content-Type": ""}, fixtures.CalExample),
 			expectedStatus: http.StatusBadGateway,
 		},
 		"not_calendar": {
@@ -106,7 +108,7 @@ func TestServer(t *testing.T) {
 				server.WithUnsafeClient(&http.Client{}),
 				server.MaxConns(1),
 			},
-			upstreamServer: mockWebcalServer(http.StatusOK, map[string]string{"Content-Type": "text/html"}, calExample),
+			upstreamServer: mockWebcalServer(http.StatusOK, map[string]string{"Content-Type": "text/html"}, fixtures.CalExample),
 			expectedStatus: http.StatusBadGateway,
 		},
 		"not_working": {
@@ -116,83 +118,83 @@ func TestServer(t *testing.T) {
 				server.WithUnsafeClient(&http.Client{}),
 				server.MaxConns(1),
 			},
-			upstreamServer: mockWebcalServer(http.StatusInternalServerError, nil, calExample),
+			upstreamServer: mockWebcalServer(http.StatusInternalServerError, nil, fixtures.CalExample),
 			expectedStatus: http.StatusBadGateway,
 		},
 		"no-cal": {
 			inputMethod:    http.MethodGet,
 			inputQuery:     "?not=right",
 			serverOpts:     []server.Opt{server.WithUnsafeClient(&http.Client{})},
-			upstreamServer: mockWebcalServer(http.StatusOK, nil, calExample),
+			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus: http.StatusBadRequest,
 		},
 		"includeRotation": {
 			inputMethod:      http.MethodGet,
 			inputQuery:       "?cal=http://CALURL&inc=SUMMARY=Rotation",
 			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
-			upstreamServer:   mockWebcalServer(http.StatusOK, nil, calExample),
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus:   http.StatusOK,
-			expectedCalendar: calOnlyRotation,
+			expectedCalendar: fixtures.CalOnlyRotation,
 		},
 		"excludeSecondary": {
 			inputMethod:      http.MethodGet,
 			inputQuery:       "?cal=http://CALURL&exc=SUMMARY=Secondary",
 			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
-			upstreamServer:   mockWebcalServer(http.StatusOK, nil, calExample),
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus:   http.StatusOK,
-			expectedCalendar: calWithoutSecondary,
+			expectedCalendar: fixtures.CalWithoutSecondary,
 		},
 		"includeExclude": {
 			inputMethod:      http.MethodGet,
 			inputQuery:       `?cal=http://CALURL&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
 			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
-			upstreamServer:   mockWebcalServer(http.StatusOK, nil, calExample),
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus:   http.StatusOK,
-			expectedCalendar: calMay22NotRotation,
+			expectedCalendar: fixtures.CalMay22NotRotation,
 		},
 		"local": {
 			inputMethod:    http.MethodGet,
 			inputQuery:     `?cal=http://127.0.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			upstreamServer: mockWebcalServer(http.StatusOK, nil, calExample),
+			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus: http.StatusBadGateway,
 		},
 		"private": {
 			inputMethod:    http.MethodGet,
 			inputQuery:     `?cal=http://192.168.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			upstreamServer: mockWebcalServer(http.StatusOK, nil, calExample),
+			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus: http.StatusBadGateway,
 		},
 		"vpn": {
 			inputMethod:    http.MethodGet,
 			inputQuery:     `?cal=http://10.0.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			upstreamServer: mockWebcalServer(http.StatusOK, nil, calExample),
+			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus: http.StatusBadGateway,
 		},
 		"localhost": {
 			inputMethod:    http.MethodGet,
 			inputQuery:     `?cal=http://localhost:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			upstreamServer: mockWebcalServer(http.StatusOK, nil, calExample),
+			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus: http.StatusBadGateway,
 		},
 		"no-port-localhost": {
 			inputMethod:    http.MethodGet,
 			inputQuery:     `?cal=http://localhost&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			upstreamServer: mockWebcalServer(http.StatusOK, nil, calExample),
+			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus: http.StatusBadGateway,
 		},
 		"webcal": {
 			inputMethod:      http.MethodGet,
 			inputQuery:       `?cal=webcal://CALURL`,
 			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
-			upstreamServer:   mockWebcalServer(http.StatusOK, nil, calExample),
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus:   http.StatusOK,
-			expectedCalendar: calExample,
+			expectedCalendar: fixtures.CalExample,
 		},
 		"ftp": {
 			inputMethod:    http.MethodGet,
 			inputQuery:     `?cal=ftp://CALURL`,
 			serverOpts:     []server.Opt{server.WithUnsafeClient(&http.Client{})},
-			upstreamServer: mockWebcalServer(http.StatusOK, nil, calExample),
+			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus: http.StatusBadRequest,
 		},
 		"unresolvable": {
@@ -200,37 +202,37 @@ func TestServer(t *testing.T) {
 			inputQuery:     "?cal=webcal://not.a.domain",
 			expectedStatus: http.StatusBadGateway,
 		},
-		"sortsevents": {
+		"sorts_events": {
 			inputMethod:      http.MethodGet,
 			inputQuery:       "?cal=http://CALURL",
 			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
-			upstreamServer:   mockWebcalServer(http.StatusOK, nil, calShuffled),
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, fixtures.CalShuffled),
 			expectedStatus:   http.StatusOK,
-			expectedCalendar: calExample,
+			expectedCalendar: fixtures.CalExample,
 		},
-		"eventwithnostart": {
+		"event_with_no_start": {
 			inputMethod:      http.MethodGet,
 			inputQuery:       "?cal=http://CALURL",
 			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
-			upstreamServer:   mockWebcalServer(http.StatusOK, nil, calEventWithNoStart),
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, fixtures.CalEventWithNoStart),
 			expectedStatus:   http.StatusOK,
-			expectedCalendar: calEventWithNoStartSorted,
+			expectedCalendar: fixtures.CalEventWithNoStartSorted,
 		},
-		"dontmerge": {
+		"do_not_merge": {
 			inputMethod:      http.MethodGet,
 			inputQuery:       "?cal=http://CALURL",
 			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
-			upstreamServer:   mockWebcalServer(http.StatusOK, nil, calUnmerged),
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, fixtures.CalUnMerged),
 			expectedStatus:   http.StatusOK,
-			expectedCalendar: calUnmerged,
+			expectedCalendar: fixtures.CalUnMerged,
 		},
 		"merge": {
 			inputMethod:      http.MethodGet,
 			inputQuery:       "?cal=http://CALURL&mrg=true",
 			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
-			upstreamServer:   mockWebcalServer(http.StatusOK, nil, calUnmerged),
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, fixtures.CalUnMerged),
 			expectedStatus:   http.StatusOK,
-			expectedCalendar: calMerged,
+			expectedCalendar: fixtures.CalMerged,
 		},
 		"htmx_asset": {
 			inputMethod:    http.MethodGet,
@@ -293,17 +295,17 @@ func TestServer(t *testing.T) {
 				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
 				server.WithUnsafeClient(&http.Client{}),
 			},
-			upstreamServer:       mockWebcalServer(http.StatusOK, nil, events11Sept2024),
+			upstreamServer:       mockWebcalServer(http.StatusOK, nil, fixtures.Events11Sept2024),
 			expectedStatus:       http.StatusOK,
 			expectedTemplateName: "calendar",
 			expectedTemplateObj: server.Calendar{
 				View:  server.ViewMonth,
 				Title: "September 2024",
 				Days:  month11Sept2024WithEvents,
-				Cache: &server.Cache{
+				Cache: &cache.Webcal{
 					URL: "webcal://CALURL",
 					Calendar: func() *ics.Calendar {
-						c, err := ics.ParseCalendar(bytes.NewReader(events11Sept2024))
+						c, err := ics.ParseCalendar(bytes.NewReader(fixtures.Events11Sept2024))
 						require.NoError(t, err)
 						return c
 					}(),
@@ -388,17 +390,17 @@ func TestServer(t *testing.T) {
 				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
 				server.WithUnsafeClient(&http.Client{}),
 			},
-			upstreamServer:       mockWebcalServer(http.StatusOK, nil, events11Sept2024),
+			upstreamServer:       mockWebcalServer(http.StatusOK, nil, fixtures.Events11Sept2024),
 			expectedStatus:       http.StatusOK,
 			expectedTemplateName: "calendar",
 			expectedTemplateObj: server.Calendar{
 				View:  server.ViewMonth,
 				Title: "September 2024",
 				Days:  month11Sept2024WithEvents,
-				Cache: &server.Cache{
+				Cache: &cache.Webcal{
 					URL: "webcal://CALURL",
 					Calendar: func() *ics.Calendar {
-						c, err := ics.ParseCalendar(bytes.NewReader(events11Sept2024))
+						c, err := ics.ParseCalendar(bytes.NewReader(fixtures.Events11Sept2024))
 						require.NoError(t, err)
 						return c
 					}(),
@@ -415,10 +417,10 @@ func TestServer(t *testing.T) {
 			inputBody: []byte(url.Values{
 				"cal": []string{"webcal://CALURL"},
 			}.Encode()),
-			inputCache: &server.Cache{
+			inputCache: &cache.Webcal{
 				URL: "webcal://CALURL",
 				Calendar: func() *ics.Calendar {
-					c, err := ics.ParseCalendar(bytes.NewReader(events11Sept2024))
+					c, err := ics.ParseCalendar(bytes.NewReader(fixtures.Events11Sept2024))
 					require.NoError(t, err)
 					return c
 				}(),
@@ -445,10 +447,10 @@ func TestServer(t *testing.T) {
 			inputBody: []byte(url.Values{
 				"cal": []string{"webcal://CALURL"},
 			}.Encode()),
-			inputCache: &server.Cache{
+			inputCache: &cache.Webcal{
 				URL: "webcal://boring.co/events",
 				Calendar: func() *ics.Calendar {
-					c, err := ics.ParseCalendar(bytes.NewReader(events11Sept2024))
+					c, err := ics.ParseCalendar(bytes.NewReader(fixtures.Events11Sept2024))
 					require.NoError(t, err)
 					return c
 				}(),
@@ -457,17 +459,17 @@ func TestServer(t *testing.T) {
 				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
 				server.WithUnsafeClient(&http.Client{}),
 			},
-			upstreamServer:       mockWebcalServer(http.StatusOK, nil, events11Sept2024),
+			upstreamServer:       mockWebcalServer(http.StatusOK, nil, fixtures.Events11Sept2024),
 			expectedStatus:       http.StatusOK,
 			expectedTemplateName: "calendar",
 			expectedTemplateObj: server.Calendar{
 				View:  server.ViewMonth,
 				Title: "September 2024",
 				Days:  month11Sept2024WithEvents,
-				Cache: &server.Cache{
+				Cache: &cache.Webcal{
 					URL: "webcal://CALURL",
 					Calendar: func() *ics.Calendar {
-						c, err := ics.ParseCalendar(bytes.NewReader(events11Sept2024))
+						c, err := ics.ParseCalendar(bytes.NewReader(fixtures.Events11Sept2024))
 						require.NoError(t, err)
 						return c
 					}(),
@@ -485,10 +487,10 @@ func TestServer(t *testing.T) {
 			inputBody: []byte(url.Values{
 				"cal": []string{""},
 			}.Encode()),
-			inputCache: &server.Cache{
+			inputCache: &cache.Webcal{
 				URL: "webcal://boring.co/events",
 				Calendar: func() *ics.Calendar {
-					c, err := ics.ParseCalendar(bytes.NewReader(events11Sept2024))
+					c, err := ics.ParseCalendar(bytes.NewReader(fixtures.Events11Sept2024))
 					require.NoError(t, err)
 					return c
 				}(),
