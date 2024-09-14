@@ -209,11 +209,12 @@ func TestServer(t *testing.T) {
 			expectedCalendar: calExample,
 		},
 		"eventwithnostart": {
-			inputMethod:    http.MethodGet,
-			inputQuery:     "?cal=http://CALURL",
-			serverOpts:     []server.Opt{server.WithUnsafeClient(&http.Client{})},
-			upstreamServer: mockWebcalServer(http.StatusOK, nil, calEventWithNoStart),
-			expectedStatus: http.StatusBadRequest,
+			inputMethod:      http.MethodGet,
+			inputQuery:       "?cal=http://CALURL",
+			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, calEventWithNoStart),
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: calEventWithNoStartSorted,
 		},
 		"dontmerge": {
 			inputMethod:      http.MethodGet,
@@ -322,7 +323,56 @@ func TestServer(t *testing.T) {
 				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
 				server.WithUnsafeClient(&http.Client{}),
 			},
-			expectedStatus: http.StatusBadRequest,
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Calendar{
+				View:  server.ViewMonth,
+				Title: "September 2024",
+				Days:  month11Sept2024,
+				Error: "Bad exc argument: invalid match parameter \"falafel\" at index 0, should be <FIELD>=<regexp>",
+			},
+		},
+		"bad_url": {
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			inputBody: []byte(url.Values{
+				"cal": []string{"webcal://\\\\CALURL"},
+			}.Encode()),
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
+				server.WithUnsafeClient(&http.Client{}),
+			},
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Calendar{
+				View:  server.ViewMonth,
+				Title: "September 2024",
+				Days:  month11Sept2024,
+				Error: "Bad url. Include a protocol, host, and path, eg: webcal://example.com/events",
+			},
+		},
+		"bad_url_percent": {
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			inputBody: []byte(url.Values{
+				"cal": []string{"%"},
+			}.Encode()),
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
+				server.WithUnsafeClient(&http.Client{}),
+			},
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Calendar{
+				View:  server.ViewMonth,
+				Title: "September 2024",
+				Days:  month11Sept2024,
+				Error: "Bad url. Include a protocol, host, and path, eg: webcal://example.com/events",
+			},
 		},
 		"htmx_calendar_with_events_and_invalid_cache": {
 			// if a bad cache was passed, fetch the upstream and set a cache

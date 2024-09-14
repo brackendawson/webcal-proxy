@@ -26,14 +26,14 @@ type matcher struct {
 
 func parseMatchers(m []string) (matchGroup, error) {
 	matches := make(matchGroup, 0, len(m))
-	for _, matchOpt := range m {
+	for i, matchOpt := range m {
 		parts := strings.Split(matchOpt, "=")
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("invalid match parameter: %s, should be <FIELD>=<regexp>", matchOpt)
+			return nil, fmt.Errorf("invalid match parameter %q at index %d, should be <FIELD>=<regexp>", matchOpt, i)
 		}
 		expression, err := regexp.Compile(parts[1])
 		if err != nil {
-			return nil, fmt.Errorf("bad regexp in match parameter '%s': %s", matchOpt, err)
+			return nil, fmt.Errorf("bad regexp in match parameter %s at index %d: %w", matchOpt, i, err)
 		}
 		matches = append(matches, matcher{
 			property:   ics.ComponentProperty(parts[0]),

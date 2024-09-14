@@ -30,4 +30,9 @@
 {{ if .Cache }}
 <input id="ical-cache" name="ical-cache" data-hx-swap-oob="true" value="{{ .Cache.Encode }}" type="hidden">
 {{ end }}
+{{ with .Error }}
+<span id="error" class="notification error" data-hx-swap-oob="true">{{ . }}</span>
+{{ else }}
+<span id="error" class="notification no-error" data-hx-swap-oob="true"></span>
+{{ end }}
 {{ end }}

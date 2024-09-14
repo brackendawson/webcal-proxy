@@ -1,8 +1,9 @@
 package server
 
 import (
-	"errors"
+	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -39,43 +40,46 @@ func appendDay(c *gin.Context, s []Day, focus time.Time, downstream *ics.Calenda
 			Spill:   d.Month() != focus.Month(),
 		}
 
-		if downstream != nil {
-			for _, component := range downstream.Components { // TODO events are sorted by start time, we can avoid the O(n^2)
-				event, ok := component.(*ics.VEvent)
-				if !ok {
-					continue
-				}
+		if downstream == nil {
+			s = append(s, newDay)
+			continue
+		}
 
-				var (
-					newEvent Event
-					err      error
-				)
-				if newEvent.StartTime, err = event.GetStartAt(); err != nil {
-					log(c).Warnf("Invalid event start time: %s", err)
-					continue
-				}
-				if newEvent.EndTime, err = event.GetEndAt(); err != nil {
-					log(c).Warnf("Invalid event end time: %s", err) // TODO contribute a defined error here
-					continue
-				}
-
-				if newEvent.StartTime.Year() != d.Year() ||
-					newEvent.StartTime.Month() != d.Month() ||
-					newEvent.StartTime.Day() != d.Day() { // TODO multi day event, use inequalities
-					continue
-				}
-				if summary := event.GetProperty(ics.ComponentPropertySummary); summary != nil {
-					newEvent.Summary = summary.Value
-				}
-				if location := event.GetProperty(ics.ComponentPropertyLocation); location != nil {
-					newEvent.Location = location.Value
-				}
-				if description := event.GetProperty(ics.ComponentPropertyDescription); description != nil {
-					newEvent.Description = description.Value
-				}
-
-				newDay.Events = append(newDay.Events, newEvent)
+		for _, component := range downstream.Components { // TODO events are sorted by start time, we can avoid the O(n^2)
+			event, ok := component.(*ics.VEvent)
+			if !ok {
+				continue
 			}
+
+			var (
+				newEvent Event
+				err      error
+			)
+			if newEvent.StartTime, err = event.GetStartAt(); err != nil {
+				log(c).Warnf("Invalid event start time: %s", err)
+				continue
+			}
+			if newEvent.EndTime, err = event.GetEndAt(); err != nil {
+				log(c).Warnf("Invalid event end time: %s", err) // TODO contribute a defined error here
+				continue
+			}
+
+			if newEvent.StartTime.Year() != d.Year() ||
+				newEvent.StartTime.Month() != d.Month() ||
+				newEvent.StartTime.Day() != d.Day() { // TODO multi day event, use inequalities
+				continue
+			}
+			if summary := event.GetProperty(ics.ComponentPropertySummary); summary != nil {
+				newEvent.Summary = summary.Value
+			}
+			if location := event.GetProperty(ics.ComponentPropertyLocation); location != nil {
+				newEvent.Location = location.Value
+			}
+			if description := event.GetProperty(ics.ComponentPropertyDescription); description != nil {
+				newEvent.Description = description.Value
+			}
+
+			newDay.Events = append(newDay.Events, newEvent)
 		}
 
 		s = append(s, newDay)
@@ -88,6 +92,7 @@ type Calendar struct {
 	Title string
 	Days  []Day
 	Cache *Cache
+	Error string
 }
 
 func newCalendar(c *gin.Context, view calendarView, focus time.Time, downstream *ics.Calendar) Calendar {
@@ -117,26 +122,25 @@ func mondayIndexWeekday(d time.Weekday) int {
 	return ((int(d)-1)%7 + 7) % 7
 }
 
-func (s *Server) parseCalendarURL(addr string) (string, error) {
-	if addr == "" {
-		return "", errors.New("missing query parameter: cal")
-	}
-
-	addrString, err := url.QueryUnescape(addr)
+func parseURLScheme(c *gin.Context, addr string) (string, error) {
+	addrURL, err := url.Parse(addr)
 	if err != nil {
-		return "", errors.New("invalid calendar url")
-	}
-
-	addrURL, err := url.Parse(addrString)
-	if err != nil {
-		return "", errors.New("invalid calendar url")
+		log(c).Warnf("invalid calendar url: %s", err)
+		return "", newErrorWithMessage(
+			http.StatusBadRequest,
+			"Bad url. Include a protocol, host, and path, eg: webcal://example.com/events",
+		)
 	}
 
 	if addrURL.Scheme == "webcal" {
 		addrURL.Scheme = "http"
 	}
-	if addrURL.Scheme != "http" && addrURL.Scheme != "https" {
-		return "", errors.New("invalid calendar url")
+
+	if !slices.Contains([]string{"http", "https"}, addrURL.Scheme) {
+		return "", newErrorWithMessage(
+			http.StatusBadRequest,
+			"Unsupported protocol scheme, url should be webcal, https, or http.",
+		)
 	}
 
 	return addrURL.String(), nil
@@ -144,20 +148,17 @@ func (s *Server) parseCalendarURL(addr string) (string, error) {
 
 // mergeEvents will perform the merge algorithm on a slice of events sorted by
 // start time.
-func mergeEvents(events []*ics.VEvent) ([]*ics.VEvent, error) {
+func mergeEvents(events []*ics.VEvent) []*ics.VEvent {
 	var (
 		newEvents   []*ics.VEvent
 		lastEndTime time.Time
 	)
 
 	for _, event := range events {
-		startTime, err := event.GetStartAt()
-		if err != nil {
-			return nil, errors.New("event has no start time")
-		}
-		endTime, err := event.GetEndAt()
-		if err != nil {
-			return nil, errors.New("event has no end time")
+		startTime, _ := event.GetStartAt()
+		endTime, _ := event.GetEndAt()
+		if endTime.Before(startTime) {
+			endTime = startTime
 		}
 
 		if len(newEvents) == 0 || !startTime.Before(lastEndTime) {
@@ -211,5 +212,5 @@ func mergeEvents(events []*ics.VEvent) ([]*ics.VEvent, error) {
 		}
 	}
 
-	return newEvents, nil
+	return newEvents
 }
