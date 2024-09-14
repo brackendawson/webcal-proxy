@@ -27,4 +27,7 @@
         </div>
     {{ end }}
 </div>
+{{ if .Cache }}
+<input id="ical-cache" name="ical-cache" data-hx-swap-oob="true" value="{{ .Cache.Encode }}" type="hidden">
+{{ end }}
 {{ end }}

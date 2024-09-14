@@ -1,6 +1,7 @@
 package server
 
 import (
+	"io"
 	"net/http"
 	"time"
 
@@ -9,12 +10,24 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type oddometer struct {
+	io.ReadCloser
+	bytes int
+}
+
+func (o *oddometer) Read(p []byte) (int, error) {
+	n, err := o.ReadCloser.Read(p)
+	o.bytes += n
+	return n, err
+}
+
 func logging(c *gin.Context) {
 	start := time.Now()
 
 	log := logrus.WithFields(logrus.Fields{
-		"method": c.Request.Method,
-		"url":    c.Request.URL.String(),
+		"req_method": c.Request.Method,
+		"req_url":    c.Request.URL.String(),
+		"req_bytes":  c.GetHeader("Content-Length"),
 	})
 
 	requestID := c.GetHeader("X-Request-ID")
@@ -30,6 +43,9 @@ func logging(c *gin.Context) {
 
 	c.Set("log", log)
 
+	requestRead := oddometer{c.Request.Body, 0}
+	c.Request.Body = &requestRead
+
 	c.Next()
 
 	for _, err := range c.Errors {
@@ -38,9 +54,10 @@ func logging(c *gin.Context) {
 	}
 
 	log.WithFields(logrus.Fields{
-		"code":     c.Writer.Status(),
-		"bytes":    c.Writer.Size(),
-		"duration": time.Since(start).Seconds(),
+		"req_read":  requestRead.bytes,
+		"res_code":  c.Writer.Status(),
+		"res_bytes": c.Writer.Size(),
+		"duration":  time.Since(start).Seconds(),
 	}).Info("Request complete")
 }
 

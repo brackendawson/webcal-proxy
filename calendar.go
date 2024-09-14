@@ -55,7 +55,7 @@ func appendDay(c *gin.Context, s []Day, focus time.Time, downstream *ics.Calenda
 					continue
 				}
 				if newEvent.EndTime, err = event.GetEndAt(); err != nil {
-					log(c).Warnf("Invalid event end time: %s", err)
+					log(c).Warnf("Invalid event end time: %s", err) // TODO contribute a defined error here
 					continue
 				}
 
@@ -87,6 +87,7 @@ type Calendar struct {
 	View  calendarView
 	Title string
 	Days  []Day
+	Cache *Cache
 }
 
 func newCalendar(c *gin.Context, view calendarView, focus time.Time, downstream *ics.Calendar) Calendar {

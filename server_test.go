@@ -30,6 +30,7 @@ func TestServer(t *testing.T) {
 		inputQuery   string
 		inputHeaders map[string]string
 		inputBody    []byte
+		inputCache   *server.Cache
 
 		// server settings
 		serverOpts []server.Opt
@@ -289,6 +290,145 @@ func TestServer(t *testing.T) {
 				View:  server.ViewMonth,
 				Title: "September 2024",
 				Days:  month11Sept2024WithEvents,
+				Cache: &server.Cache{
+					URL: "webcal://CALURL",
+					Calendar: func() *ics.Calendar {
+						c, err := ics.ParseCalendar(bytes.NewReader(events11Sept2024))
+						require.NoError(t, err)
+						return c
+					}(),
+				},
+			},
+		},
+		"htmx_calendar_with_events_and_invalid_cache": {
+			// if a bad cache was passed, fetch the upstream and set a cache
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			inputBody: []byte(url.Values{
+				"cal":        []string{"webcal://CALURL"},
+				"ical-cache": []string{"I'm no cache"},
+			}.Encode()),
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
+				server.WithUnsafeClient(&http.Client{}),
+			},
+			upstreamServer:       mockWebcalServer(http.StatusOK, nil, events11Sept2024),
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Calendar{
+				View:  server.ViewMonth,
+				Title: "September 2024",
+				Days:  month11Sept2024WithEvents,
+				Cache: &server.Cache{
+					URL: "webcal://CALURL",
+					Calendar: func() *ics.Calendar {
+						c, err := ics.ParseCalendar(bytes.NewReader(events11Sept2024))
+						require.NoError(t, err)
+						return c
+					}(),
+				},
+			},
+		},
+		"htmx_calendar_with_events_and_cache": {
+			// if a cached calendar was passed, don't fetch the URL or return
+			// the cache
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			inputBody: []byte(url.Values{
+				"cal": []string{"webcal://CALURL"},
+			}.Encode()),
+			inputCache: &server.Cache{
+				URL: "webcal://CALURL",
+				Calendar: func() *ics.Calendar {
+					c, err := ics.ParseCalendar(bytes.NewReader(events11Sept2024))
+					require.NoError(t, err)
+					return c
+				}(),
+			},
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
+				server.WithUnsafeClient(&http.Client{}),
+			},
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Calendar{
+				View:  server.ViewMonth,
+				Title: "September 2024",
+				Days:  month11Sept2024WithEvents,
+			},
+		},
+		"htmx_calendar_with_events_and_old_cache": {
+			// if a cached calendar was passed that doesn't match the URL, do
+			// fetch the URL and the new cache
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			inputBody: []byte(url.Values{
+				"cal": []string{"webcal://CALURL"},
+			}.Encode()),
+			inputCache: &server.Cache{
+				URL: "webcal://boring.co/events",
+				Calendar: func() *ics.Calendar {
+					c, err := ics.ParseCalendar(bytes.NewReader(events11Sept2024))
+					require.NoError(t, err)
+					return c
+				}(),
+			},
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
+				server.WithUnsafeClient(&http.Client{}),
+			},
+			upstreamServer:       mockWebcalServer(http.StatusOK, nil, events11Sept2024),
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Calendar{
+				View:  server.ViewMonth,
+				Title: "September 2024",
+				Days:  month11Sept2024WithEvents,
+				Cache: &server.Cache{
+					URL: "webcal://CALURL",
+					Calendar: func() *ics.Calendar {
+						c, err := ics.ParseCalendar(bytes.NewReader(events11Sept2024))
+						require.NoError(t, err)
+						return c
+					}(),
+				},
+			},
+		},
+		"htmx_calendar_no_calendar_requested_and_old_cache": {
+			// if a cached calendar was passed but no calendar was requested,
+			// don't fetch ant URL, and don't set a cache. THe existing cache
+			// may remain.
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			inputBody: []byte(url.Values{
+				"cal": []string{""},
+			}.Encode()),
+			inputCache: &server.Cache{
+				URL: "webcal://boring.co/events",
+				Calendar: func() *ics.Calendar {
+					c, err := ics.ParseCalendar(bytes.NewReader(events11Sept2024))
+					require.NoError(t, err)
+					return c
+				}(),
+			},
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
+				server.WithUnsafeClient(&http.Client{}),
+			},
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Calendar{
+				View:  server.ViewMonth,
+				Title: "September 2024",
+				Days:  month11Sept2024,
 			},
 		},
 	} {
@@ -300,9 +440,23 @@ func TestServer(t *testing.T) {
 
 			upstreamURL, err := url.Parse(upstreamServer.URL)
 			require.NoError(t, err)
+
 			inputURL := "http://localhost/" + strings.Replace(test.inputQuery, "CALURL", upstreamURL.Host, -1)
 			t.Log(inputURL)
+			if calendar, ok := test.expectedTemplateObj.(server.Calendar); ok && calendar.Cache != nil {
+				calendar.Cache.URL = strings.Replace(calendar.Cache.URL, "CALURL", upstreamURL.Host, -1)
+			}
+			if test.inputCache != nil {
+				test.inputCache.URL = strings.Replace(test.inputCache.URL, "CALURL", upstreamURL.Host, -1)
+				q, err := url.ParseQuery(string(test.inputBody))
+				require.NoError(t, err, "test.inputCache must only be used when test.inputBody is application/x-www-form-urlencoded")
+				cache, err := test.inputCache.Encode()
+				require.NoError(t, err)
+				q.Set("ical-cache", cache)
+				test.inputBody = []byte(q.Encode())
+			}
 			r := httptest.NewRequest(test.inputMethod, inputURL, bytes.NewReader(bytes.Replace(test.inputBody, []byte("CALURL"), []byte(upstreamURL.Host), -1)))
+
 			for k, v := range test.inputHeaders {
 				r.Header.Set(k, v)
 			}
@@ -369,12 +523,4 @@ func (m *mockRender) Render(w http.ResponseWriter) error {
 
 func (m *mockRender) WriteContentType(w http.ResponseWriter) {
 	m.Called(w)
-}
-
-func must[T, U any](t *testing.T, f func(T) (U, error), v T) U {
-	u, err := f(v)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return u
 }
