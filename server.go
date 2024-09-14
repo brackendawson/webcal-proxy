@@ -76,7 +76,7 @@ func (s *Server) HandleWebcal(c *gin.Context) {
 		return
 	}
 
-	merge, includes, excludes, ok := parseCalendarOptions(c)
+	merge, includes, excludes, ok := parseCalendarOptions(c, c.QueryArray)
 	if !ok {
 		return
 	}
@@ -119,7 +119,7 @@ func (s *Server) HandleCalendar(c *gin.Context) {
 		usedCache bool
 	)
 	if upstreamURL != "" {
-		merge, includes, excludes, ok := parseCalendarOptions(c)
+		merge, includes, excludes, ok := parseCalendarOptions(c, c.PostFormArray)
 		if !ok {
 			return
 		}
@@ -281,12 +281,12 @@ func (s *Server) fetch(url string) (*ics.Calendar, error) {
 	return ics.ParseCalendar(upstream.Body)
 }
 
-func parseMergeOption(c *gin.Context, mrg string) (_ bool, ok bool) {
-	if mrg == "" {
+func parseMergeOption(c *gin.Context, mrg []string) (_ bool, ok bool) {
+	if len(mrg) == 0 || mrg[0] == "" {
 		return false, true
 	}
 
-	merge, err := strconv.ParseBool(mrg)
+	merge, err := strconv.ParseBool(mrg[0])
 	if err != nil {
 		err = fmt.Errorf("error parsing mrg argument: %s", err)
 		_ = c.AbortWithError(http.StatusBadRequest, err)
@@ -296,13 +296,13 @@ func parseMergeOption(c *gin.Context, mrg string) (_ bool, ok bool) {
 	return merge, true
 }
 
-func parseCalendarOptions(c *gin.Context) (merge bool, includes, excludes matchGroup, ok bool) {
-	merge, ok = parseMergeOption(c, c.Query("mrg"))
+func parseCalendarOptions(c *gin.Context, source func(string) []string) (merge bool, includes, excludes matchGroup, ok bool) {
+	merge, ok = parseMergeOption(c, source("mrg"))
 	if !ok {
 		return false, nil, nil, false
 	}
 
-	includes, err := parseMatchers(c.QueryArray("inc"))
+	includes, err := parseMatchers(source("inc"))
 	if err != nil {
 		err = fmt.Errorf("error parsing inc argument %q: %s", c.QueryArray("inc"), err)
 		_ = c.AbortWithError(http.StatusBadRequest, err)
@@ -315,7 +315,7 @@ func parseCalendarOptions(c *gin.Context) (merge bool, includes, excludes matchG
 		})
 	}
 
-	excludes, err = parseMatchers(c.QueryArray("exc"))
+	excludes, err = parseMatchers(source("exc"))
 	if err != nil {
 		err = fmt.Errorf("error parsing exc argument %q: %s", c.QueryArray("exc"), err)
 		_ = c.AbortWithError(http.StatusBadRequest, err)

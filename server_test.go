@@ -56,6 +56,15 @@ func TestServer(t *testing.T) {
 			expectedStatus:   http.StatusOK,
 			expectedCalendar: calExample,
 		},
+		"input_inc_validated_before_upstream_request": {
+			inputMethod: http.MethodGet,
+			inputQuery:  "?cal=http://CALURL&inc=hjklkhkjh",
+			serverOpts: []server.Opt{
+				server.WithUnsafeClient(&http.Client{}),
+				server.MaxConns(1),
+			},
+			expectedStatus: http.StatusBadRequest,
+		},
 		"userAgent": {
 			inputMethod: http.MethodGet,
 			inputQuery:  "?cal=http://CALURL",
@@ -299,6 +308,21 @@ func TestServer(t *testing.T) {
 					}(),
 				},
 			},
+		},
+		"input_exc_validation_before_upstream_request": {
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			inputBody: []byte(url.Values{
+				"cal": []string{"webcal://CALURL"},
+				"exc": []string{"falafel"},
+			}.Encode()),
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
+				server.WithUnsafeClient(&http.Client{}),
+			},
+			expectedStatus: http.StatusBadRequest,
 		},
 		"htmx_calendar_with_events_and_invalid_cache": {
 			// if a bad cache was passed, fetch the upstream and set a cache
