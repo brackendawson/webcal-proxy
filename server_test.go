@@ -249,7 +249,22 @@ func TestServer(t *testing.T) {
 			inputHeaders:         map[string]string{"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8"},
 			expectedStatus:       http.StatusOK,
 			expectedTemplateName: "index",
-			expectedTemplateObj:  struct{ Host string }{Host: "example.com"},
+			expectedTemplateObj: server.View{
+				ArgHost: "example.com",
+			},
+		},
+		"html_index_behind_reverse_proxy": {
+			inputMethod: http.MethodGet,
+			inputHeaders: map[string]string{
+				"Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8",
+				"X-Forwarded-URI": "/webcal-proxy",
+			},
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "index",
+			expectedTemplateObj: server.View{
+				ArgHost:      "example.com",
+				ArgProxyPath: "/webcal-proxy",
+			},
 		},
 		"htmx_calendar": {
 			inputMethod: http.MethodPost,
@@ -263,9 +278,12 @@ func TestServer(t *testing.T) {
 			expectedStatus:       http.StatusOK,
 			expectedTemplateName: "calendar",
 			expectedTemplateObj: server.Calendar{
-				View:  server.ViewMonth,
-				Title: "September 2024",
-				Days:  month11Sept2024,
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				CalendarView: server.ViewMonth,
+				Title:        "September 2024",
+				Days:         month11Sept2024,
 			},
 		},
 		"htmx_calendar_with_user_tz": {
@@ -283,9 +301,12 @@ func TestServer(t *testing.T) {
 			expectedStatus:       http.StatusOK,
 			expectedTemplateName: "calendar",
 			expectedTemplateObj: server.Calendar{
-				View:  server.ViewMonth,
-				Title: "September 2024",
-				Days:  month11Sept2024,
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				CalendarView: server.ViewMonth,
+				Title:        "September 2024",
+				Days:         month11Sept2024,
 			},
 		},
 		"htmx_calendar_with_events": {
@@ -305,9 +326,12 @@ func TestServer(t *testing.T) {
 			expectedStatus:       http.StatusOK,
 			expectedTemplateName: "calendar",
 			expectedTemplateObj: server.Calendar{
-				View:  server.ViewMonth,
-				Title: "September 2024",
-				Days:  month11Sept2024WithEvents,
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				CalendarView: server.ViewMonth,
+				Title:        "September 2024",
+				Days:         month11Sept2024WithEvents,
 				Cache: &cache.Webcal{
 					URL: "webcal://CALURL",
 					Calendar: func() *ics.Calendar {
@@ -316,7 +340,43 @@ func TestServer(t *testing.T) {
 						return c
 					}(),
 				},
-				URL: "http://example.com/?cal=webcal%3A%2F%2FCALURL",
+				URL: "webcal://example.com/?cal=webcal%3A%2F%2FCALURL",
+			},
+		},
+		"htmx_calendar_with_events_behind_reverse_proxy": {
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"X-HX-Host":       "example.com",
+				"Content-Type":    "application/x-www-form-urlencoded",
+				"X-Forwarded-URI": "/webcal-proxy",
+			},
+			inputBody: []byte(url.Values{
+				"cal": []string{"webcal://CALURL"},
+			}.Encode()),
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
+				server.WithUnsafeClient(&http.Client{}),
+			},
+			upstreamServer:       mockWebcalServer(http.StatusOK, nil, fixtures.Events11Sept2024),
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Calendar{
+				View: server.View{
+					ArgHost:      "example.com",
+					ArgProxyPath: "/webcal-proxy",
+				},
+				CalendarView: server.ViewMonth,
+				Title:        "September 2024",
+				Days:         month11Sept2024WithEvents,
+				Cache: &cache.Webcal{
+					URL: "webcal://CALURL",
+					Calendar: func() *ics.Calendar {
+						c, err := ics.ParseCalendar(bytes.NewReader(fixtures.Events11Sept2024))
+						require.NoError(t, err)
+						return c
+					}(),
+				},
+				URL: "webcal://example.com/webcal-proxy/?cal=webcal%3A%2F%2FCALURL",
 			},
 		},
 		"htmx_calendar_with_events_and_local_time": {
@@ -337,9 +397,12 @@ func TestServer(t *testing.T) {
 			expectedStatus:       http.StatusOK,
 			expectedTemplateName: "calendar",
 			expectedTemplateObj: server.Calendar{
-				View:  server.ViewMonth,
-				Title: "September 2024",
-				Days:  month11Sept2024WithEventsSydney,
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				CalendarView: server.ViewMonth,
+				Title:        "September 2024",
+				Days:         month11Sept2024WithEventsSydney,
 				Cache: &cache.Webcal{
 					URL: "webcal://CALURL",
 					Calendar: func() *ics.Calendar {
@@ -348,7 +411,7 @@ func TestServer(t *testing.T) {
 						return c
 					}(),
 				},
-				URL: "http://example.com/?cal=webcal%3A%2F%2FCALURL",
+				URL: "webcal://example.com/?cal=webcal%3A%2F%2FCALURL",
 			},
 		},
 		"input_exc_validation_before_upstream_request": {
@@ -367,10 +430,13 @@ func TestServer(t *testing.T) {
 			expectedStatus:       http.StatusOK,
 			expectedTemplateName: "calendar",
 			expectedTemplateObj: server.Calendar{
-				View:  server.ViewMonth,
-				Title: "September 2024",
-				Days:  month11Sept2024,
-				Error: "Bad exc argument: invalid match parameter \"falafel\" at index 0, should be <FIELD>=<regexp>",
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				CalendarView: server.ViewMonth,
+				Title:        "September 2024",
+				Days:         month11Sept2024,
+				Error:        "Bad exc argument: invalid match parameter \"falafel\" at index 0, should be <FIELD>=<regexp>",
 			},
 		},
 		"bad_url": {
@@ -389,10 +455,13 @@ func TestServer(t *testing.T) {
 			expectedStatus:       http.StatusOK,
 			expectedTemplateName: "calendar",
 			expectedTemplateObj: server.Calendar{
-				View:  server.ViewMonth,
-				Title: "September 2024",
-				Days:  month11Sept2024,
-				Error: "Bad url. Include a protocol, host, and path, eg: webcal://example.com/events",
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				CalendarView: server.ViewMonth,
+				Title:        "September 2024",
+				Days:         month11Sept2024,
+				Error:        "Bad url. Include a protocol, host, and path, eg: webcal://example.com/events",
 			},
 		},
 		"bad_url_percent": {
@@ -411,10 +480,13 @@ func TestServer(t *testing.T) {
 			expectedStatus:       http.StatusOK,
 			expectedTemplateName: "calendar",
 			expectedTemplateObj: server.Calendar{
-				View:  server.ViewMonth,
-				Title: "September 2024",
-				Days:  month11Sept2024,
-				Error: "Bad url. Include a protocol, host, and path, eg: webcal://example.com/events",
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				CalendarView: server.ViewMonth,
+				Title:        "September 2024",
+				Days:         month11Sept2024,
+				Error:        "Bad url. Include a protocol, host, and path, eg: webcal://example.com/events",
 			},
 		},
 		"htmx_calendar_with_events_and_invalid_cache": {
@@ -436,9 +508,12 @@ func TestServer(t *testing.T) {
 			expectedStatus:       http.StatusOK,
 			expectedTemplateName: "calendar",
 			expectedTemplateObj: server.Calendar{
-				View:  server.ViewMonth,
-				Title: "September 2024",
-				Days:  month11Sept2024WithEvents,
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				CalendarView: server.ViewMonth,
+				Title:        "September 2024",
+				Days:         month11Sept2024WithEvents,
 				Cache: &cache.Webcal{
 					URL: "webcal://CALURL",
 					Calendar: func() *ics.Calendar {
@@ -447,7 +522,7 @@ func TestServer(t *testing.T) {
 						return c
 					}(),
 				},
-				URL: "http://example.com/?cal=webcal%3A%2F%2FCALURL",
+				URL: "webcal://example.com/?cal=webcal%3A%2F%2FCALURL",
 			},
 		},
 		"htmx_calendar_with_events_and_cache": {
@@ -476,10 +551,13 @@ func TestServer(t *testing.T) {
 			expectedStatus:       http.StatusOK,
 			expectedTemplateName: "calendar",
 			expectedTemplateObj: server.Calendar{
-				View:  server.ViewMonth,
-				Title: "September 2024",
-				Days:  month11Sept2024WithEvents,
-				URL:   "http://example.com/?cal=webcal%3A%2F%2FCALURL",
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				CalendarView: server.ViewMonth,
+				Title:        "September 2024",
+				Days:         month11Sept2024WithEvents,
+				URL:          "webcal://example.com/?cal=webcal%3A%2F%2FCALURL",
 			},
 		},
 		"htmx_calendar_with_events_and_old_cache": {
@@ -509,9 +587,12 @@ func TestServer(t *testing.T) {
 			expectedStatus:       http.StatusOK,
 			expectedTemplateName: "calendar",
 			expectedTemplateObj: server.Calendar{
-				View:  server.ViewMonth,
-				Title: "September 2024",
-				Days:  month11Sept2024WithEvents,
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				CalendarView: server.ViewMonth,
+				Title:        "September 2024",
+				Days:         month11Sept2024WithEvents,
 				Cache: &cache.Webcal{
 					URL: "webcal://CALURL",
 					Calendar: func() *ics.Calendar {
@@ -520,7 +601,7 @@ func TestServer(t *testing.T) {
 						return c
 					}(),
 				},
-				URL: "http://example.com/?cal=webcal%3A%2F%2FCALURL",
+				URL: "webcal://example.com/?cal=webcal%3A%2F%2FCALURL",
 			},
 		},
 		"htmx_calendar_no_calendar_requested_and_old_cache": {
@@ -550,9 +631,12 @@ func TestServer(t *testing.T) {
 			expectedStatus:       http.StatusOK,
 			expectedTemplateName: "calendar",
 			expectedTemplateObj: server.Calendar{
-				View:  server.ViewMonth,
-				Title: "September 2024",
-				Days:  month11Sept2024,
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				CalendarView: server.ViewMonth,
+				Title:        "September 2024",
+				Days:         month11Sept2024,
 			},
 		},
 	} {

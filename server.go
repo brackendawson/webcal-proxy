@@ -67,13 +67,33 @@ func New(r *gin.Engine, opts ...Opt) *Server {
 	return s
 }
 
+type View struct {
+	ArgHost, ArgProxyPath string
+}
+
+func newView(c *gin.Context) View {
+	host := c.Request.Host
+	if host == "" {
+		host = c.GetHeader("X-HX-Host")
+	}
+
+	return View{
+		ArgHost:      host,
+		ArgProxyPath: c.GetHeader("X-Forwarded-URI"),
+	}
+}
+
+func (v View) Host() string {
+	return v.ArgHost
+}
+
+func (v View) ProxyPath() string {
+	return v.ArgProxyPath
+}
+
 func (s *Server) HandleWebcal(c *gin.Context) {
 	if isBrowser(c) {
-		c.HTML(http.StatusOK, "index", struct {
-			Host string
-		}{
-			Host: c.Request.Host,
-		})
+		c.HTML(http.StatusOK, "index", newView(c))
 		return
 	}
 
@@ -107,24 +127,24 @@ func (s *Server) HandleHTMX(c *gin.Context) {
 
 	opts, err := getCalendarOptions(c, c.PostFormArray)
 	if err != nil {
-		handleHTMXError(c, newCalendar(c, ViewMonth, now, nil), err)
+		handleHTMXError(c, newCalendar(c, newView(c), ViewMonth, now, nil), err)
 		return
 	}
 
 	if opts.url == "" {
-		c.HTML(http.StatusOK, "calendar", newCalendar(c, ViewMonth, now, nil))
+		c.HTML(http.StatusOK, "calendar", newCalendar(c, newView(c), ViewMonth, now, nil))
 		return
 	}
 
 	upstream, upstreamFromCache, err := s.getUpstreamWithCache(c, opts.url, c.PostForm("ical-cache"))
 	if err != nil {
-		handleHTMXError(c, newCalendar(c, ViewMonth, now, nil), err)
+		handleHTMXError(c, newCalendar(c, newView(c), ViewMonth, now, nil), err)
 		return
 	}
 
 	downstream := getDownstreamCalendar(upstream, opts)
 
-	calendar := newCalendar(c, ViewMonth, now, downstream)
+	calendar := newCalendar(c, newView(c), ViewMonth, now, downstream)
 
 	if upstream != nil && !upstreamFromCache {
 		calendar.Cache = &cache.Webcal{

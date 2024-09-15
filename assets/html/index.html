@@ -3,12 +3,12 @@
 <html lang="en">
     <head>
         <title>Webcal Proxy</title>
-        <link rel="icon" type="image/x-icon" href="assets/img/favicon.ico">
-        <link rel="stylesheet" href="/assets/css/bootstrap.min.css">
-        <link rel="stylesheet" href="/assets/css/fontawesome.min.css">
-        <link rel="stylesheet" href="/assets/css/main.css">
-        <script src="/assets/js/htmx.min.js"></script>
-        <script src="/assets/js/main.js"></script>
+        <link rel="icon" type="image/x-icon" href="{{ .ProxyPath }}/assets/img/favicon.ico">
+        <link rel="stylesheet" href="{{ .ProxyPath }}/assets/css/bootstrap.min.css">
+        <link rel="stylesheet" href="{{ .ProxyPath }}/assets/css/fontawesome.min.css">
+        <link rel="stylesheet" href="{{ .ProxyPath }}/assets/css/main.css">
+        <script src="{{ .ProxyPath }}/assets/js/htmx.min.js"></script>
+        <script src="{{ .ProxyPath }}/assets/js/main.js"></script>
     </head>
     <body>
         <header>
@@ -17,7 +17,7 @@
         </header>
         <main>
             <form id="config-form"
-                data-hx-post="/"
+                data-hx-post="{{ .ProxyPath }}/"
                 data-hx-headers='{"X-HX-Host": "{{ .Host }}"}'
                 data-hx-target="#calendar"
                 data-hx-swap="outerHTML"

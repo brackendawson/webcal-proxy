@@ -1,5 +1,5 @@
 {{ define "calendar" }}
-{{ if eq .View "month" }}
+{{ if eq .CalendarView "month" }}
     {{ template "month" . }}
 {{ else }}
     {{ errorf "invalid view for calendar: %s" .View }}

@@ -94,18 +94,20 @@ func appendDay(ctx context.Context, s []Day, focus time.Time, downstream *ics.Ca
 }
 
 type Calendar struct {
-	View  calendarView
-	Title string
-	Days  []Day
-	Cache *cache.Webcal
-	URL   string
-	Error string
+	View
+	CalendarView calendarView
+	Title        string
+	Days         []Day
+	Cache        *cache.Webcal
+	URL          string
+	Error        string
 }
 
-func newCalendar(ctx context.Context, view calendarView, focus time.Time, downstream *ics.Calendar) Calendar {
+func newCalendar(ctx context.Context, view View, calendarView calendarView, focus time.Time, downstream *ics.Calendar) Calendar {
 	// TODO allow moving the focus date, need to think about the today date
 	cal := Calendar{
-		View: view,
+		View:         view,
+		CalendarView: calendarView,
 	}
 
 	cal.Title = focus.Format("January 2006")

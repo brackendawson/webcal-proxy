@@ -85,10 +85,10 @@ func getString(getArray func(string) []string, key string) string {
 
 func clientURL(c *gin.Context) *url.URL {
 	u := c.Request.URL
-	u.Scheme = "http"
-	// TODO X-Forwarded-Proto
+	u.Scheme = "webcal"
 	u.Host = c.GetHeader("X-HX-Host") // Host header is banned in XHR
-	// TODO X-Forwarded-URI
+	proxyPath := c.GetHeader("X-Forwarded-URI")
+	u.Path = proxyPath + u.Path
 
 	q := url.Values{
 		"cal": c.PostFormArray("cal"),

@@ -20,7 +20,7 @@ func main() {
 		secureConfig secure.Config = secure.DefaultConfig()
 		maxConns     int
 	)
-	flag.StringVar(&logFile, "logfile", "", "File to log to")
+	flag.StringVar(&logFile, "log-file", "", "File to log to")
 	flag.TextVar(&logLevel, "log-level", logrus.InfoLevel, "log level")
 	flag.BoolVar(&secureConfig.IsDevelopment, "dev", false, "disables security policies that prevent http://localhost from working")
 	flag.StringVar(&addr, "addr", ":80", "local address:port to bind to")
