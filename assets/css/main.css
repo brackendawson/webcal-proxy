@@ -8,14 +8,9 @@
     --light-blue: #6599ff;
     --med-blue: #0066ff;
     --light-red: #ffaacc;
-    --med-red: #9f4f4f;
     --light-green: #92fe92;
-    --med-green: #00aa00;
 }
 
-* {
-    margin: 0;
-}
 
 html,
 body {
@@ -124,12 +119,10 @@ footer {
 .day-saturday .day-head,
 .day-sunday .day-head {
     background: var(--med-grey);
-    padding-left: 0.25rem;
 }
 
 .day-today .day-head {
     background: var(--light-bg);
-    padding-left: 0.25rem;
     color: white;
 }
 
