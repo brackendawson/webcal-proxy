@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 
@@ -79,4 +80,22 @@ func getString(getArray func(string) []string, key string) string {
 		return ""
 	}
 	return ss[0]
+}
+
+func clientURL(c *gin.Context, opts calenderOptions) *url.URL {
+	u := c.Request.URL
+	u.Scheme = "http"
+	// TODO X-Forwarded-Proto
+	u.Host = c.GetHeader("Host")
+	// TODO X-Forwarded-URI
+
+	q := url.Values{
+		"cal": c.PostFormArray("cal"),
+		"inc": c.PostFormArray("inc"),
+		"exc": c.PostFormArray("exc"),
+		"mrg": c.PostFormArray("mrg"),
+	}
+	u.RawQuery = q.Encode()
+
+	return u
 }

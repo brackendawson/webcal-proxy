@@ -9,6 +9,8 @@
     --med-blue: #0066ff;
     --light-red: #ffaacc;
     --med-red: #9f4f4f;
+    --light-green: #92fe92;
+    --med-green: #00aa00;
 }
 
 * {
@@ -153,6 +155,19 @@ footer {
 }
 
 .no-error {
+    display: none
+}
+
+#url {
+    background: var(--light-green);
+    border-color: var(--med-green);
+}
+
+#url-box {
+    margin: 0.25rem;
+}
+
+.no-url {
     display: none
 }
 

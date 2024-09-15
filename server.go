@@ -127,6 +127,8 @@ func (s *Server) HandleHTMX(c *gin.Context) {
 		}
 	}
 
+	calendar.URL = clientURL(c, opts).String()
+
 	c.HTML(http.StatusOK, "calendar", calendar)
 }
 

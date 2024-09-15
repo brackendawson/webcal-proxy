@@ -98,6 +98,7 @@ type Calendar struct {
 	Title string
 	Days  []Day
 	Cache *cache.Webcal
+	URL   string
 	Error string
 }
 

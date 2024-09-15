@@ -35,4 +35,9 @@
 {{ else }}
 <span id="error" class="notification no-error" data-hx-swap-oob="true"></span>
 {{ end }}
+{{ with .URL }}
+<div id="url" class="notification url" data-hx-swap-oob="true"><label id="url-label" for="url-box">Your URL</label><input id="url-box" disabled="disabled" value="{{ . }}"></div>   
+{{ else }}
+<span id="url" class="notification no-url" data-hx-swap-oob="true"></span>
+{{ end }}
 {{ end }}

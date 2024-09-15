@@ -310,6 +310,7 @@ func TestServer(t *testing.T) {
 						return c
 					}(),
 				},
+				URL: "http://example.com/?cal=webcal%3A%2F%2FCALURL",
 			},
 		},
 		"htmx_calendar_with_events_and_local_time": {
@@ -340,6 +341,7 @@ func TestServer(t *testing.T) {
 						return c
 					}(),
 				},
+				URL: "http://example.com/?cal=webcal%3A%2F%2FCALURL",
 			},
 		},
 		"input_exc_validation_before_upstream_request": {
@@ -435,6 +437,7 @@ func TestServer(t *testing.T) {
 						return c
 					}(),
 				},
+				URL: "http://example.com/?cal=webcal%3A%2F%2FCALURL",
 			},
 		},
 		"htmx_calendar_with_events_and_cache": {
@@ -465,6 +468,7 @@ func TestServer(t *testing.T) {
 				View:  server.ViewMonth,
 				Title: "September 2024",
 				Days:  month11Sept2024WithEvents,
+				URL:   "http://example.com/?cal=webcal%3A%2F%2FCALURL",
 			},
 		},
 		"htmx_calendar_with_events_and_old_cache": {
@@ -504,6 +508,7 @@ func TestServer(t *testing.T) {
 						return c
 					}(),
 				},
+				URL: "http://example.com/?cal=webcal%3A%2F%2FCALURL",
 			},
 		},
 		"htmx_calendar_no_calendar_requested_and_old_cache": {
@@ -547,10 +552,14 @@ func TestServer(t *testing.T) {
 			upstreamURL, err := url.Parse(upstreamServer.URL)
 			require.NoError(t, err)
 
-			inputURL := "http://localhost/" + strings.Replace(test.inputQuery, "CALURL", upstreamURL.Host, -1)
+			inputURL := "/" + strings.Replace(test.inputQuery, "CALURL", upstreamURL.Host, -1)
 			t.Log(inputURL)
-			if calendar, ok := test.expectedTemplateObj.(server.Calendar); ok && calendar.Cache != nil {
-				calendar.Cache.URL = strings.Replace(calendar.Cache.URL, "CALURL", upstreamURL.Host, -1)
+			if calendar, ok := test.expectedTemplateObj.(server.Calendar); ok {
+				if calendar.Cache != nil {
+					calendar.Cache.URL = strings.Replace(calendar.Cache.URL, "CALURL", upstreamURL.Host, -1)
+				}
+				calendar.URL = strings.Replace(calendar.URL, "CALURL", url.QueryEscape(upstreamURL.Host), -1)
+				test.expectedTemplateObj = calendar
 			}
 			if test.inputCache != nil {
 				test.inputCache.URL = strings.Replace(test.inputCache.URL, "CALURL", upstreamURL.Host, -1)
@@ -562,6 +571,7 @@ func TestServer(t *testing.T) {
 				test.inputBody = []byte(q.Encode())
 			}
 			r := httptest.NewRequest(test.inputMethod, inputURL, bytes.NewReader(bytes.Replace(test.inputBody, []byte("CALURL"), []byte(upstreamURL.Host), -1)))
+			r.Header.Set("Host", "example.com")
 
 			for k, v := range test.inputHeaders {
 				r.Header.Set(k, v)
