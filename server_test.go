@@ -340,7 +340,7 @@ func TestServer(t *testing.T) {
 						return c
 					}(),
 				},
-				URL: "webcal://example.com/?cal=webcal%3A%2F%2FCALURL",
+				URL: "webcal://example.com?cal=webcal%3A%2F%2FCALURL",
 			},
 		},
 		"htmx_calendar_with_events_behind_reverse_proxy": {
@@ -376,7 +376,7 @@ func TestServer(t *testing.T) {
 						return c
 					}(),
 				},
-				URL: "webcal://example.com/webcal-proxy/?cal=webcal%3A%2F%2FCALURL",
+				URL: "webcal://example.com/webcal-proxy?cal=webcal%3A%2F%2FCALURL",
 			},
 		},
 		"htmx_calendar_with_events_and_local_time": {
@@ -411,7 +411,7 @@ func TestServer(t *testing.T) {
 						return c
 					}(),
 				},
-				URL: "webcal://example.com/?cal=webcal%3A%2F%2FCALURL",
+				URL: "webcal://example.com?cal=webcal%3A%2F%2FCALURL",
 			},
 		},
 		"input_exc_validation_before_upstream_request": {
@@ -522,7 +522,7 @@ func TestServer(t *testing.T) {
 						return c
 					}(),
 				},
-				URL: "webcal://example.com/?cal=webcal%3A%2F%2FCALURL",
+				URL: "webcal://example.com?cal=webcal%3A%2F%2FCALURL",
 			},
 		},
 		"htmx_calendar_with_events_and_cache": {
@@ -557,7 +557,7 @@ func TestServer(t *testing.T) {
 				CalendarView: server.ViewMonth,
 				Title:        "September 2024",
 				Days:         month11Sept2024WithEvents,
-				URL:          "webcal://example.com/?cal=webcal%3A%2F%2FCALURL",
+				URL:          "webcal://example.com?cal=webcal%3A%2F%2FCALURL",
 			},
 		},
 		"htmx_calendar_with_events_and_old_cache": {
@@ -601,7 +601,7 @@ func TestServer(t *testing.T) {
 						return c
 					}(),
 				},
-				URL: "webcal://example.com/?cal=webcal%3A%2F%2FCALURL",
+				URL: "webcal://example.com?cal=webcal%3A%2F%2FCALURL",
 			},
 		},
 		"htmx_calendar_no_calendar_requested_and_old_cache": {

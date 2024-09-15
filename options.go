@@ -88,7 +88,7 @@ func clientURL(c *gin.Context) *url.URL {
 	u.Scheme = "webcal"
 	u.Host = c.GetHeader("X-HX-Host") // Host header is banned in XHR
 	proxyPath := c.GetHeader("X-Forwarded-URI")
-	u.Path = proxyPath + u.Path
+	u.Path = proxyPath
 
 	q := url.Values{
 		"cal": c.PostFormArray("cal"),
