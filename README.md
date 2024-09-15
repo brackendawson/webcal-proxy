@@ -3,7 +3,7 @@
 # ![wp logo](assets/img/favicon.ico) webcal-proxy
 A simple server to filter events from webcal feeds.
 
-<button>Try it out here</button>
+[![Try it out](doc/try-it-out.png)](https://bracken.cc/webcal-proxy)
 
 ## Usage
 ### Server
