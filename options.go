@@ -86,7 +86,7 @@ func clientURL(c *gin.Context, opts calenderOptions) *url.URL {
 	u := c.Request.URL
 	u.Scheme = "http"
 	// TODO X-Forwarded-Proto
-	u.Host = c.GetHeader("Host")
+	u.Host = c.GetHeader("X-HX-Host") // Host header is banned in XHR
 	// TODO X-Forwarded-URI
 
 	q := url.Values{

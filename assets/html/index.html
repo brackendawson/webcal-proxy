@@ -18,6 +18,7 @@
         <main>
             <form id="config-form"
                 data-hx-post="/"
+                data-hx-headers='{"X-HX-Host": "{{ .Host }}"}'
                 data-hx-target="#calendar"
                 data-hx-swap="outerHTML"
                 data-hx-trigger="load delay:1s,

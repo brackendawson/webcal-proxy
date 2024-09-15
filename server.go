@@ -67,7 +67,11 @@ func New(r *gin.Engine, opts ...Opt) *Server {
 
 func (s *Server) HandleWebcal(c *gin.Context) {
 	if isBrowser(c) {
-		c.HTML(http.StatusOK, "index", nil)
+		c.HTML(http.StatusOK, "index", struct {
+			Host string
+		}{
+			Host: c.Request.Host,
+		})
 		return
 	}
 

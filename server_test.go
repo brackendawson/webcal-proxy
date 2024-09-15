@@ -249,10 +249,14 @@ func TestServer(t *testing.T) {
 			inputHeaders:         map[string]string{"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8"},
 			expectedStatus:       http.StatusOK,
 			expectedTemplateName: "index",
-			expectedTemplateObj:  nil,
+			expectedTemplateObj:  struct{ Host string }{Host: "example.com"},
 		},
 		"htmx_calendar": {
 			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
 			serverOpts: []server.Opt{
 				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
 			},
@@ -267,6 +271,7 @@ func TestServer(t *testing.T) {
 		"htmx_calendar_with_user_tz": {
 			inputMethod: http.MethodPost,
 			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
 				"Content-Type": "application/x-www-form-urlencoded",
 			},
 			inputBody: []byte(url.Values{
@@ -286,6 +291,7 @@ func TestServer(t *testing.T) {
 		"htmx_calendar_with_events": {
 			inputMethod: http.MethodPost,
 			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
 				"Content-Type": "application/x-www-form-urlencoded",
 			},
 			inputBody: []byte(url.Values{
@@ -316,6 +322,7 @@ func TestServer(t *testing.T) {
 		"htmx_calendar_with_events_and_local_time": {
 			inputMethod: http.MethodPost,
 			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
 				"Content-Type": "application/x-www-form-urlencoded",
 			},
 			inputBody: []byte(url.Values{
@@ -369,6 +376,7 @@ func TestServer(t *testing.T) {
 		"bad_url": {
 			inputMethod: http.MethodPost,
 			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
 				"Content-Type": "application/x-www-form-urlencoded",
 			},
 			inputBody: []byte(url.Values{
@@ -390,6 +398,7 @@ func TestServer(t *testing.T) {
 		"bad_url_percent": {
 			inputMethod: http.MethodPost,
 			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
 				"Content-Type": "application/x-www-form-urlencoded",
 			},
 			inputBody: []byte(url.Values{
@@ -412,6 +421,7 @@ func TestServer(t *testing.T) {
 			// if a bad cache was passed, fetch the upstream and set a cache
 			inputMethod: http.MethodPost,
 			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
 				"Content-Type": "application/x-www-form-urlencoded",
 			},
 			inputBody: []byte(url.Values{
@@ -445,6 +455,7 @@ func TestServer(t *testing.T) {
 			// the cache
 			inputMethod: http.MethodPost,
 			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
 				"Content-Type": "application/x-www-form-urlencoded",
 			},
 			inputBody: []byte(url.Values{
@@ -476,6 +487,7 @@ func TestServer(t *testing.T) {
 			// fetch the URL and the new cache
 			inputMethod: http.MethodPost,
 			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
 				"Content-Type": "application/x-www-form-urlencoded",
 			},
 			inputBody: []byte(url.Values{
@@ -517,6 +529,7 @@ func TestServer(t *testing.T) {
 			// may remain.
 			inputMethod: http.MethodPost,
 			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
 				"Content-Type": "application/x-www-form-urlencoded",
 			},
 			inputBody: []byte(url.Values{
@@ -571,7 +584,6 @@ func TestServer(t *testing.T) {
 				test.inputBody = []byte(q.Encode())
 			}
 			r := httptest.NewRequest(test.inputMethod, inputURL, bytes.NewReader(bytes.Replace(test.inputBody, []byte("CALURL"), []byte(upstreamURL.Host), -1)))
-			r.Header.Set("Host", "example.com")
 
 			for k, v := range test.inputHeaders {
 				r.Header.Set(k, v)
