@@ -66,6 +66,7 @@ func TestServer(t *testing.T) {
 				server.MaxConns(1),
 			},
 			expectedStatus: http.StatusBadRequest,
+			expectedBody:   []byte(`Bad inc argument: invalid match parameter "hjklkhkjh" at index 0, should be <FIELD>=<regexp>`),
 		},
 		"userAgent": {
 			inputMethod: http.MethodGet,
@@ -78,7 +79,8 @@ func TestServer(t *testing.T) {
 			upstreamServer: func(w http.ResponseWriter, r *http.Request) {
 				require.Equal(t, "blah/1", r.Header.Get("User-Agent"))
 			},
-			expectedStatus: http.StatusBadGateway,
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: fixtures.EmptyCalendar,
 		},
 		"utf8": {
 			inputMethod: http.MethodGet,
@@ -91,15 +93,16 @@ func TestServer(t *testing.T) {
 			expectedStatus:   http.StatusOK,
 			expectedCalendar: fixtures.CalExample,
 		},
-		"not_utf8": {
+		"no_content_type": {
 			inputMethod: http.MethodGet,
 			inputQuery:  "?cal=http://CALURL",
 			serverOpts: []server.Opt{
 				server.WithUnsafeClient(&http.Client{}),
 				server.MaxConns(1),
 			},
-			upstreamServer: mockWebcalServer(http.StatusOK, map[string]string{"Content-Type": ""}, fixtures.CalExample),
-			expectedStatus: http.StatusBadGateway,
+			upstreamServer:   mockWebcalServer(http.StatusOK, map[string]string{"Content-Type": ""}, fixtures.CalExample),
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: fixtures.CalExample,
 		},
 		"not_calendar": {
 			inputMethod: http.MethodGet,
@@ -110,6 +113,7 @@ func TestServer(t *testing.T) {
 			},
 			upstreamServer: mockWebcalServer(http.StatusOK, map[string]string{"Content-Type": "text/html"}, fixtures.CalExample),
 			expectedStatus: http.StatusBadGateway,
+			expectedBody:   []byte("Failed to fetch calendar"),
 		},
 		"not_working": {
 			inputMethod: http.MethodGet,
@@ -120,6 +124,7 @@ func TestServer(t *testing.T) {
 			},
 			upstreamServer: mockWebcalServer(http.StatusInternalServerError, nil, fixtures.CalExample),
 			expectedStatus: http.StatusBadGateway,
+			expectedBody:   []byte("Failed to fetch calendar"),
 		},
 		"no-cal": {
 			inputMethod:    http.MethodGet,
@@ -127,6 +132,7 @@ func TestServer(t *testing.T) {
 			serverOpts:     []server.Opt{server.WithUnsafeClient(&http.Client{})},
 			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus: http.StatusBadRequest,
+			expectedBody:   []byte(`Missing "cal" parameter, must be a webcal URL.`),
 		},
 		"includeRotation": {
 			inputMethod:      http.MethodGet,
@@ -157,30 +163,35 @@ func TestServer(t *testing.T) {
 			inputQuery:     `?cal=http://127.0.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
 			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus: http.StatusBadGateway,
+			expectedBody:   []byte("Failed to fetch calendar"),
 		},
 		"private": {
 			inputMethod:    http.MethodGet,
 			inputQuery:     `?cal=http://192.168.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
 			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus: http.StatusBadGateway,
+			expectedBody:   []byte("Failed to fetch calendar"),
 		},
 		"vpn": {
 			inputMethod:    http.MethodGet,
 			inputQuery:     `?cal=http://10.0.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
 			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus: http.StatusBadGateway,
+			expectedBody:   []byte("Failed to fetch calendar"),
 		},
 		"localhost": {
 			inputMethod:    http.MethodGet,
 			inputQuery:     `?cal=http://localhost:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
 			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus: http.StatusBadGateway,
+			expectedBody:   []byte("Failed to fetch calendar"),
 		},
 		"no-port-localhost": {
 			inputMethod:    http.MethodGet,
 			inputQuery:     `?cal=http://localhost&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
 			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus: http.StatusBadGateway,
+			expectedBody:   []byte("Failed to fetch calendar"),
 		},
 		"webcal": {
 			inputMethod:      http.MethodGet,
@@ -196,11 +207,13 @@ func TestServer(t *testing.T) {
 			serverOpts:     []server.Opt{server.WithUnsafeClient(&http.Client{})},
 			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus: http.StatusBadRequest,
+			expectedBody:   []byte("Unsupported protocol scheme, url should be webcal, https, or http."),
 		},
 		"unresolvable": {
 			inputMethod:    http.MethodGet,
 			inputQuery:     "?cal=webcal://not.a.domain",
 			expectedStatus: http.StatusBadGateway,
+			expectedBody:   []byte("Failed to fetch calendar"),
 		},
 		"sorts_events": {
 			inputMethod:      http.MethodGet,

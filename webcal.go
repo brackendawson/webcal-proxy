@@ -101,12 +101,15 @@ func (s *Server) fetch(url string) (*ics.Calendar, error) {
 	if upstream.StatusCode < 200 || upstream.StatusCode >= 300 {
 		return nil, fmt.Errorf("bad status: %s", upstream.Status)
 	}
-	mediaType, _, err := mime.ParseMediaType(upstream.Header.Get("Content-Type"))
-	if err != nil {
-		return nil, fmt.Errorf("error parsing content type: %w", err)
-	}
-	if mediaType != "text/calendar" {
-		return nil, errors.New("not a calendar")
+	contentType := upstream.Header.Get("Content-Type")
+	if contentType != "" {
+		mediaType, _, err := mime.ParseMediaType(contentType)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing content type: %w", err)
+		}
+		if mediaType != "text/calendar" {
+			return nil, errors.New("not a calendar")
+		}
 	}
 
 	return ics.ParseCalendar(upstream.Body)

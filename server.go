@@ -102,6 +102,13 @@ func (s *Server) HandleWebcal(c *gin.Context) {
 		handleWebcalErr(c, err)
 		return
 	}
+	if opts.url == "" {
+		handleWebcalErr(c, newErrorWithMessage(
+			http.StatusBadRequest,
+			`Missing "cal" parameter, must be a webcal URL.`,
+		))
+		return
+	}
 
 	upstream, err := s.getUpstreamCalendar(c, opts.url)
 	if err != nil {

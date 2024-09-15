@@ -25,4 +25,6 @@ var (
 	CalMerged []byte
 	//go:embed events11Sept2024.ics
 	Events11Sept2024 []byte
+	//go:embed emptyCalendar.ics
+	EmptyCalendar []byte
 )
