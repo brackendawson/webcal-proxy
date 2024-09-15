@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	//go:embed js css img
+	//go:embed js css img webfonts
 	Assets embed.FS
 	//go:embed html
 	templates embed.FS

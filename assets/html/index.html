@@ -5,6 +5,7 @@
         <title>Webcal Proxy</title>
         <link rel="icon" type="image/x-icon" href="assets/img/favicon.ico">
         <link rel="stylesheet" href="/assets/css/bootstrap.min.css">
+        <link rel="stylesheet" href="/assets/css/fontawesome.min.css">
         <link rel="stylesheet" href="/assets/css/main.css">
         <script src="/assets/js/htmx.min.js"></script>
         <script src="/assets/js/main.js"></script>
@@ -31,10 +32,12 @@
                 >
                 <input id="user-tz" name="user-tz" type="hidden">
                 <input id="ical-cache" name="ical-cache" type="hidden">
-                <span class="htmx-indicator notification loading">loading...</span>
+                <div id="loading" class="input-group loading">
+                    <span id="loading-label" class="input-group-text notification">Loading...</span>
+                </div>
+                {{ template "_placeholder-url" . }}
+                {{ template "_placeholder-error" . }}
             </form>
-            <span id="error" class="notification no-error"></span>
-            <span id="url" class="notification no-url"></span>
             <div id="calendar"></div>
         </main>
         <footer>
