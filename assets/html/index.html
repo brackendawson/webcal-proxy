@@ -22,15 +22,22 @@
                 data-hx-target="#calendar"
                 data-hx-swap="outerHTML"
                 data-hx-trigger="load delay:1s,
-                    keyup changed delay:1s from:#input-url"
+                    keyup changed delay:1s from:#input-url,
+                    change from:#input-mrg"
             >
-                <input id="input-url"
-                    type="text"
-                    name="cal"
-                    class="form-control"
-                    placeholder="enter a webcal url"
-                    aria-label="Calendar URL"
-                >
+                <div class="input-group">
+                    <input id="input-url"
+                        type="text"
+                        name="cal"
+                        class="form-control"
+                        placeholder="enter a webcal url"
+                        aria-label="Calendar URL"
+                    >
+                </div>
+                <div class="form-check input-group">
+                    <input id="input-mrg" name="mrg" class="form-check-input" type="checkbox" value="true" id="flexCheckDefault">
+                    <label class="form-check-label" for="flexCheckDefault">Merge overlapping events</label>
+                </div>
                 <input id="user-tz" name="user-tz" type="hidden">
                 <input id="ical-cache" name="ical-cache" type="hidden">
                 <div id="loading" class="input-group loading">
