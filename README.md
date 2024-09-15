@@ -29,8 +29,8 @@ location /webcal-proxy {
     rewrite             ^/matomo(.*)$ $1 break;
     proxy_set_header    Host    $host;
     proxy_set_header    X-Forwarded-URI /webcal-proxy;
-    proxy_redirect  off;
-    proxy_buffering off;
+    proxy_redirect      off;
+    proxy_buffering     off;
 }
 ```
 
