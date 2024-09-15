@@ -100,19 +100,16 @@ footer {
     margin-left: 0.4em;
 }
 
-:nth-child(4 of .day-event) {
-    margin-top: -1.6em;
-    position: relative;
-    z-index: 1;
+:nth-child(3 of .day-event):not(:last-child) {
     text-align: right;
     padding-right: 0.25em;
 }
 
-:nth-child(4 of .day-event) span {
+:nth-child(3 of .day-event):not(:last-child) span {
     display: none;
 }
 
-:nth-child(4 of .day-event):before {
+:nth-child(3 of .day-event):not(:last-child):before {
     content: "more..."
 }
 
