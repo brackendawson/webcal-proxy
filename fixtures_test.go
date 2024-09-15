@@ -1,7 +1,6 @@
 package server_test
 
 import (
-	"fmt"
 	"time"
 
 	server "github.com/brackendawson/webcal-proxy"
@@ -97,13 +96,6 @@ var (
 		{Number: 6, Weekday: "sunday", Spill: true},
 	}
 
-	tzLondon = func() *time.Location {
-		l, err := time.LoadLocation("Europe/London")
-		if err != nil {
-			panic(fmt.Errorf("Invalid time zone: %s", err))
-		}
-		return l
-	}()
 	month11Sept2024WithEvents = func() []server.Day {
 		c := make([]server.Day, len(month11Sept2024))
 		copy(c, month11Sept2024)
