@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"time"
@@ -8,6 +9,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/hashicorp/go-uuid"
 	"github.com/sirupsen/logrus"
+)
+
+type contextKey int
+
+const (
+	ctxKeyLogger contextKey = iota
 )
 
 type oddometer struct {
@@ -41,7 +48,7 @@ func logging(c *gin.Context) {
 	c.Header("X-Request-ID", requestID)
 	log = log.WithField("id", requestID)
 
-	c.Set("log", log)
+	c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), ctxKeyLogger, log))
 
 	requestRead := oddometer{c.Request.Body, 0}
 	c.Request.Body = &requestRead
@@ -61,13 +68,8 @@ func logging(c *gin.Context) {
 	}).Info("Request complete")
 }
 
-func log(c *gin.Context) logrus.FieldLogger {
-	v, ok := c.Get("log")
-	if !ok {
-		return logrus.StandardLogger()
-	}
-
-	log, ok := v.(logrus.FieldLogger)
+func log(ctx context.Context) logrus.FieldLogger {
+	log, ok := ctx.Value(ctxKeyLogger).(logrus.FieldLogger)
 	if !ok {
 		return logrus.StandardLogger()
 	}

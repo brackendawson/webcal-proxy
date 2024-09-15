@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"mime"
@@ -10,13 +11,12 @@ import (
 
 	ics "github.com/arran4/golang-ical"
 	"github.com/brackendawson/webcal-proxy/cache"
-	"github.com/gin-gonic/gin"
 )
 
-func parseURLScheme(c *gin.Context, addr string) (string, error) {
+func parseURLScheme(ctx context.Context, addr string) (string, error) {
 	addrURL, err := url.Parse(addr)
 	if err != nil {
-		log(c).Warnf("invalid calendar url: %s", err)
+		log(ctx).Warnf("invalid calendar url: %s", err)
 		return "", newErrorWithMessage(
 			http.StatusBadRequest,
 			"Bad url. Include a protocol, host, and path, eg: webcal://example.com/events",
@@ -37,15 +37,15 @@ func parseURLScheme(c *gin.Context, addr string) (string, error) {
 	return addrURL.String(), nil
 }
 
-func (s *Server) getUpstreamCalendar(c *gin.Context, url string) (*ics.Calendar, error) {
-	upstreamURL, err := parseURLScheme(c, url)
+func (s *Server) getUpstreamCalendar(ctx context.Context, url string) (*ics.Calendar, error) {
+	upstreamURL, err := parseURLScheme(ctx, url)
 	if err != nil {
 		return nil, err
 	}
 
 	upstream, err := s.fetch(upstreamURL)
 	if err != nil {
-		log(c).Warnf("Failed to fetch calendar %q: %s", upstreamURL, err)
+		log(ctx).Warnf("Failed to fetch calendar %q: %s", upstreamURL, err)
 		return nil, newErrorWithMessage(
 			http.StatusBadGateway,
 			"Failed to fetch calendar",
@@ -55,30 +55,29 @@ func (s *Server) getUpstreamCalendar(c *gin.Context, url string) (*ics.Calendar,
 	return upstream, nil
 }
 
-func getCache(c *gin.Context, upstreamURL string) (*ics.Calendar, bool) {
-	rawCache := c.PostForm("ical-cache")
+func decodeCache(ctx context.Context, upstreamURL string, rawCache string) (*ics.Calendar, bool) {
 	if rawCache == "" {
 		return nil, false
 	}
 	cache, err := cache.ParseWebcal(rawCache)
 	if err != nil {
-		log(c).Warnf("Failed to parse cache: %s. Continuing without.")
+		log(ctx).Warnf("Failed to parse cache: %s. Continuing without.")
 		return nil, false
 	}
 
 	if cache.URL != upstreamURL {
-		log(c).Debugf("Cache was for old URL %q, ignoring.", cache.URL)
+		log(ctx).Debugf("Cache was for old URL %q, ignoring.", cache.URL)
 		return nil, false
 	}
 
-	log(c).Debug("Using cached calendar")
+	log(ctx).Debug("Using cached calendar")
 	return cache.Calendar, true
 }
 
-func (s *Server) getUpstreamWithCache(c *gin.Context, upstreamURL string) (_ *ics.Calendar, usedCache bool, _ error) {
-	upstream, ok := getCache(c, upstreamURL)
+func (s *Server) getUpstreamWithCache(ctx context.Context, upstreamURL string, rawCache string) (_ *ics.Calendar, usedCache bool, _ error) {
+	upstream, ok := decodeCache(ctx, upstreamURL, rawCache)
 	if !ok {
-		upstream, err := s.getUpstreamCalendar(c, upstreamURL)
+		upstream, err := s.getUpstreamCalendar(ctx, upstreamURL)
 		if err != nil {
 			return nil, false, err
 		}

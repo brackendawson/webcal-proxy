@@ -52,7 +52,9 @@ func New(r *gin.Engine, opts ...Opt) *Server {
 		now:       time.Now,
 	}
 
+	r.ContextWithFallback = true
 	r.Use(logging)
+
 	r.SetHTMLTemplate(assets.Templates())
 	r.GET("/", s.HandleWebcal)
 	r.POST("/", s.HandleHTMX)
@@ -114,7 +116,7 @@ func (s *Server) HandleHTMX(c *gin.Context) {
 		return
 	}
 
-	upstream, upstreamFromCache, err := s.getUpstreamWithCache(c, opts.url)
+	upstream, upstreamFromCache, err := s.getUpstreamWithCache(c, opts.url, c.PostForm("ical-cache"))
 	if err != nil {
 		handleHTMXError(c, newCalendar(c, ViewMonth, now, nil), err)
 		return
@@ -131,7 +133,7 @@ func (s *Server) HandleHTMX(c *gin.Context) {
 		}
 	}
 
-	calendar.URL = clientURL(c, opts).String()
+	calendar.URL = clientURL(c).String()
 
 	c.HTML(http.StatusOK, "calendar", calendar)
 }

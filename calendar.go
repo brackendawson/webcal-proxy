@@ -1,12 +1,12 @@
 package server
 
 import (
+	"context"
 	"strings"
 	"time"
 
 	ics "github.com/arran4/golang-ical"
 	"github.com/brackendawson/webcal-proxy/cache"
-	"github.com/gin-gonic/gin"
 )
 
 type calendarView string
@@ -29,7 +29,7 @@ type Day struct {
 	Events  []Event
 }
 
-func appendDay(c *gin.Context, s []Day, focus time.Time, downstream *ics.Calendar, days ...time.Time) []Day {
+func appendDay(ctx context.Context, s []Day, focus time.Time, downstream *ics.Calendar, days ...time.Time) []Day {
 	for _, d := range days {
 		newDay := Day{
 			Number:  d.Day(),
@@ -54,7 +54,7 @@ func appendDay(c *gin.Context, s []Day, focus time.Time, downstream *ics.Calenda
 				err      error
 			)
 			if newEvent.StartTime, err = event.GetStartAt(); err != nil {
-				log(c).Warnf("Invalid event start time: %s", err)
+				log(ctx).Warnf("Invalid event start time: %s", err)
 				continue
 			}
 			// Date only (no zone) events are parsed to midnight on time.Local,
@@ -63,7 +63,7 @@ func appendDay(c *gin.Context, s []Day, focus time.Time, downstream *ics.Calenda
 				newEvent.StartTime = newEvent.StartTime.In(focus.Location())
 			}
 			if newEvent.EndTime, err = event.GetEndAt(); err != nil {
-				log(c).Warnf("Invalid event end time: %s", err) // TODO contribute a defined error here
+				log(ctx).Warnf("Invalid event end time: %s", err) // TODO contribute a defined error here
 				continue
 			}
 			if newEvent.EndTime.Location() != time.Local {
@@ -102,7 +102,7 @@ type Calendar struct {
 	Error string
 }
 
-func newCalendar(c *gin.Context, view calendarView, focus time.Time, downstream *ics.Calendar) Calendar {
+func newCalendar(ctx context.Context, view calendarView, focus time.Time, downstream *ics.Calendar) Calendar {
 	// TODO allow moving the focus date, need to think about the today date
 	cal := Calendar{
 		View: view,
@@ -114,11 +114,11 @@ func newCalendar(c *gin.Context, view calendarView, focus time.Time, downstream 
 	float = float.AddDate(0, 0, -mondayIndexWeekday(float.Weekday()))
 
 	for float.Month() <= focus.Month() {
-		cal.Days = appendDay(c, cal.Days, focus, downstream, float)
+		cal.Days = appendDay(ctx, cal.Days, focus, downstream, float)
 		float = float.AddDate(0, 0, 1)
 	}
 	for float.Weekday() != time.Monday {
-		cal.Days = appendDay(c, cal.Days, focus, downstream, float)
+		cal.Days = appendDay(ctx, cal.Days, focus, downstream, float)
 		float = float.AddDate(0, 0, 1)
 	}
 
