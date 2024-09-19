@@ -153,7 +153,6 @@ footer {
     display: none
 }
 
-
 #loading {
     display: none;
 }
@@ -169,8 +168,8 @@ footer {
     animation: pulse 1s linear 0s infinite;
 }
 
-.htmx-request * .url,
-.htmx-request * .error {
+.htmx-request .url,
+.htmx-request .error {
     display: none;
 }
 
@@ -184,3 +183,30 @@ footer {
     }
 }
 
+.property-select {
+    text-align: right;
+}
+
+.match-select {
+    text-align: center;
+}
+
+.input-group > .matcher-property {
+    flex: 0 0 fit-content;
+}
+
+.input-group > .matcher-operator {
+    flex: 0 0 fit-content;
+}
+
+.input-group > .matcher-value {
+    flex: 1 0 auto;
+}
+
+.del-matcher > * {
+    pointer-events: none;
+}
+
+.matcher-group:nth-child(1 of .matcher-group) .del-matcher {
+    display: none;
+}

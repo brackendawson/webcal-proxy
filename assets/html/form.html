@@ -1,0 +1,43 @@
+{{ define "matcher-group" }}
+<div class="input-group matcher-group">
+    <select class="form-select property-select matcher matcher-property">
+        <option value="SUMMARY">Summary</option>
+        <option value="DESCRIPTION">Description</option>
+        <option value="LOCATION">Location</option>
+        <option disabled>-</option>
+        <option value="ATTACH">Attachment</option>
+        <option value="CATEGORIES">Categories</option>
+        <option value="CLASS">Class</option>
+        <option value="COMMENT">Comment</option>
+        <option value="RESOURCES">Resources</option>
+        <option value="STATUS">Status</option>
+        <option value="TRANSP">Time Transparency</option>
+    </select>
+    <select class="form-select match-select matcher matcher-operator">
+        <option value="inc">=~</option>
+        <option value="exc">!~</option>
+    </select>
+    <input type="text" class="form-control matcher matcher-value" placeholder="regex">
+    <input class="matcher-arg" name="" value="" type="hidden">
+    <button
+        class="btn btn-outline-secondary del-matcher"
+        type="submit"
+        title="remove this matcher"
+        data-hx-target="closest .matcher-group"
+        data-hx-delete="{{ .ProxyPath }}/matcher"
+        data-hx-swap="delete"
+        data-hx-params="none"
+        ><i class="fa-solid fa-trash"></i></button>
+    <button 
+        class="btn btn-outline-secondary add-matcher"
+        type="button"
+        title="add another matcher"
+        data-hx-get="{{ .ProxyPath }}/matcher"
+        data-hx-headers='{"X-HX-Host": "{{ .Host }}"}'
+        data-hx-target="closest .matcher-group"
+        data-hx-swap="afterend"
+        data-hx-trigger="click"
+        data-hx-params="none"
+        ><i class="fa-solid fa-plus"></i></button>
+    </div>
+{{ end }}

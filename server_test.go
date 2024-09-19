@@ -43,9 +43,10 @@ func TestServer(t *testing.T) {
 		// assertions
 		expectedStatus       int
 		expectedCalendar     []byte
-		expectedBody         []byte
+		expectedBody         *[]byte
 		expectedTemplateName string
 		expectedTemplateObj  any
+		expectedHeaders      map[string]string
 	}{
 		"default": {
 			inputMethod: http.MethodGet,
@@ -66,7 +67,7 @@ func TestServer(t *testing.T) {
 				server.MaxConns(1),
 			},
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   []byte(`Bad inc argument: invalid match parameter "hjklkhkjh" at index 0, should be <FIELD>=<regexp>`),
+			expectedBody:   ptrTo([]byte(`Bad inc argument: invalid match parameter "hjklkhkjh" at index 0, should be <FIELD>=<regexp>`)),
 		},
 		"userAgent": {
 			inputMethod: http.MethodGet,
@@ -113,7 +114,7 @@ func TestServer(t *testing.T) {
 			},
 			upstreamServer: mockWebcalServer(http.StatusOK, map[string]string{"Content-Type": "text/html"}, fixtures.CalExample),
 			expectedStatus: http.StatusBadGateway,
-			expectedBody:   []byte("Failed to fetch calendar"),
+			expectedBody:   ptrTo([]byte("Failed to fetch calendar")),
 		},
 		"not_working": {
 			inputMethod: http.MethodGet,
@@ -124,7 +125,7 @@ func TestServer(t *testing.T) {
 			},
 			upstreamServer: mockWebcalServer(http.StatusInternalServerError, nil, fixtures.CalExample),
 			expectedStatus: http.StatusBadGateway,
-			expectedBody:   []byte("Failed to fetch calendar"),
+			expectedBody:   ptrTo([]byte("Failed to fetch calendar")),
 		},
 		"no-cal": {
 			inputMethod:    http.MethodGet,
@@ -132,7 +133,7 @@ func TestServer(t *testing.T) {
 			serverOpts:     []server.Opt{server.WithUnsafeClient(&http.Client{})},
 			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   []byte(`Missing "cal" parameter, must be a webcal URL.`),
+			expectedBody:   ptrTo([]byte(`Missing "cal" parameter, must be a webcal URL.`)),
 		},
 		"includeRotation": {
 			inputMethod:      http.MethodGet,
@@ -163,35 +164,35 @@ func TestServer(t *testing.T) {
 			inputQuery:     `?cal=http://127.0.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
 			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus: http.StatusBadGateway,
-			expectedBody:   []byte("Failed to fetch calendar"),
+			expectedBody:   ptrTo([]byte("Failed to fetch calendar")),
 		},
 		"private": {
 			inputMethod:    http.MethodGet,
 			inputQuery:     `?cal=http://192.168.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
 			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus: http.StatusBadGateway,
-			expectedBody:   []byte("Failed to fetch calendar"),
+			expectedBody:   ptrTo([]byte("Failed to fetch calendar")),
 		},
 		"vpn": {
 			inputMethod:    http.MethodGet,
 			inputQuery:     `?cal=http://10.0.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
 			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus: http.StatusBadGateway,
-			expectedBody:   []byte("Failed to fetch calendar"),
+			expectedBody:   ptrTo([]byte("Failed to fetch calendar")),
 		},
 		"localhost": {
 			inputMethod:    http.MethodGet,
 			inputQuery:     `?cal=http://localhost:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
 			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus: http.StatusBadGateway,
-			expectedBody:   []byte("Failed to fetch calendar"),
+			expectedBody:   ptrTo([]byte("Failed to fetch calendar")),
 		},
 		"no-port-localhost": {
 			inputMethod:    http.MethodGet,
 			inputQuery:     `?cal=http://localhost&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
 			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus: http.StatusBadGateway,
-			expectedBody:   []byte("Failed to fetch calendar"),
+			expectedBody:   ptrTo([]byte("Failed to fetch calendar")),
 		},
 		"webcal": {
 			inputMethod:      http.MethodGet,
@@ -207,13 +208,13 @@ func TestServer(t *testing.T) {
 			serverOpts:     []server.Opt{server.WithUnsafeClient(&http.Client{})},
 			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   []byte("Unsupported protocol scheme, url should be webcal, https, or http."),
+			expectedBody:   ptrTo([]byte("Unsupported protocol scheme, url should be webcal, https, or http.")),
 		},
 		"unresolvable": {
 			inputMethod:    http.MethodGet,
 			inputQuery:     "?cal=webcal://not.a.domain",
 			expectedStatus: http.StatusBadGateway,
-			expectedBody:   []byte("Failed to fetch calendar"),
+			expectedBody:   ptrTo([]byte("Failed to fetch calendar")),
 		},
 		"sorts_events": {
 			inputMethod:      http.MethodGet,
@@ -251,10 +252,10 @@ func TestServer(t *testing.T) {
 			inputMethod:    http.MethodGet,
 			inputQuery:     "assets/js/htmx.min.js",
 			expectedStatus: http.StatusOK,
-			expectedBody: func() []byte {
+			expectedBody: func() *[]byte {
 				b, err := assets.Assets.ReadFile("js/htmx.min.js")
 				require.NoError(t, err)
-				return b
+				return &b
 			}(),
 		},
 		"html_index": {
@@ -652,6 +653,33 @@ func TestServer(t *testing.T) {
 				Days:         month11Sept2024,
 			},
 		},
+		"add_matcher_group": {
+			inputMethod: http.MethodGet,
+			inputQuery:  "matcher",
+			inputHeaders: map[string]string{
+				"X-HX-Host":       "example.com",
+				"X-Forwarded-URI": "/webcal-proxy",
+			},
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "matcher-group",
+			expectedTemplateObj: server.View{
+				ArgHost:      "example.com",
+				ArgProxyPath: "/webcal-proxy",
+			},
+		},
+		"remove_matcher_group": {
+			inputMethod: http.MethodDelete,
+			inputQuery:  "matcher",
+			inputHeaders: map[string]string{
+				"X-HX-Host":       "example.com",
+				"X-Forwarded-URI": "/webcal-proxy",
+			},
+			expectedStatus: http.StatusOK,
+			expectedBody:   ptrTo([]byte(nil)),
+			expectedHeaders: map[string]string{
+				"HX-Trigger-After-Settle": `{"input":{"target":"#trigger-submit"}}`,
+			},
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -704,6 +732,9 @@ func TestServer(t *testing.T) {
 			router.ServeHTTP(w, r)
 
 			assert.Equal(t, test.expectedStatus, w.Code)
+			for k, v := range test.expectedHeaders {
+				require.Equal(t, v, w.Header().Get(k))
+			}
 			if test.expectedCalendar != nil {
 				expectedCalendar, err := ics.ParseCalendar(bytes.NewReader(test.expectedCalendar))
 				require.NoError(t, err)
@@ -713,7 +744,7 @@ func TestServer(t *testing.T) {
 				t.Logf("actual:\n%s", w.Body.String())
 			}
 			if test.expectedBody != nil {
-				require.Equal(t, test.expectedBody, w.Body.Bytes())
+				require.Equal(t, *test.expectedBody, w.Body.Bytes())
 			}
 		})
 	}
@@ -748,4 +779,8 @@ func (m *mockRender) Render(w http.ResponseWriter) error {
 
 func (m *mockRender) WriteContentType(w http.ResponseWriter) {
 	m.Called(w)
+}
+
+func ptrTo[T any](t T) *T {
+	return &t
 }

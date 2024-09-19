@@ -58,6 +58,8 @@ func New(r *gin.Engine, opts ...Opt) *Server {
 	r.SetHTMLTemplate(assets.Templates())
 	r.GET("/", s.HandleWebcal)
 	r.POST("/", s.HandleHTMX)
+	r.GET("/matcher", s.HandleMatcher)
+	r.DELETE("/matcher", s.HandleMatcherDelete)
 	r.StaticFS("/assets", http.FS(assets.Assets))
 
 	for _, opt := range opts {
@@ -172,4 +174,16 @@ func isBrowser(c *gin.Context) bool {
 		}
 	}
 	return false
+}
+
+func (s *Server) HandleMatcher(c *gin.Context) {
+	c.HTML(http.StatusOK, "matcher-group", newView(c))
+}
+
+func (s *Server) HandleMatcherDelete(c *gin.Context) {
+	// HTMX forms that handle click events from buttons swallow the events
+	// before they can reach the browser. This means checkboxes don't work.
+	// In order to submit the form after someone clicks the delete button next
+	// to a matcher we trigger an input on the hidden #trigger-submit input.
+	c.Header("HX-Trigger-After-Settle", `{"input":{"target":"#trigger-submit"}}`)
 }

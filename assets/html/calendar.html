@@ -39,13 +39,9 @@
 {{ end }}
 {{ with .URL }}
 <div id="url" class="input-group url" data-hx-swap-oob="true">
-    <div class="input-group-prepend">
-        <span id="url-label" class="input-group-text url">Your URL</span>
-    </div>
+    <span id="url-label" class="input-group-text url">Your URL</span>
     <input type="text" id="url-box" class="form-control url" disabled="disabled" value="{{ . }}">
-    <div class="input-group-append">
-        <button id="url-copy" class="btn btn-outline-secondary url" type="button"><i id="url-copy-icon" class="fa-regular fa-copy"></i> Copy</button>
-    </div>
+    <button id="url-copy" class="btn btn-outline-secondary url" type="button"><i id="url-copy-icon" class="fa-regular fa-copy"></i> Copy</button>
 </div>
 {{ else }}
 {{ template "_placeholder-url" . }}
