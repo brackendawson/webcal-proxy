@@ -154,13 +154,13 @@ func (s *Server) HandleHTMX(c *gin.Context) {
 	} else {
 		log(c).Warnf("Failed to parse user time zone: %s, using UTC.", err)
 	}
-	log(c).Debug("Using today: %s", today)
+	log(c).Debugf("Using today: %s", today)
 
 	target := today
 	if t, ok := parseTarget(c, today); ok {
 		target = t
 	}
-	log(c).Debug("Using target: %s", target)
+	log(c).Debugf("Using target: %s", target)
 
 	opts, err := getCalendarOptions(c, c.PostFormArray)
 	if err != nil {
@@ -211,7 +211,7 @@ func parseTarget(c *gin.Context, today time.Time) (time.Time, bool) {
 	}
 	year, err := strconv.Atoi(targetYear)
 	if err != nil {
-		log(c).Error("Error parsing target-year: %s", err)
+		log(c).Errorf("Error parsing target-year: %s", err)
 		return time.Time{}, false
 	}
 
@@ -221,7 +221,7 @@ func parseTarget(c *gin.Context, today time.Time) (time.Time, bool) {
 	}
 	month, err := strconv.Atoi(targetMonth)
 	if err != nil {
-		log(c).Error("Error parsing target-month: %s", err)
+		log(c).Errorf("Error parsing target-month: %s", err)
 		return time.Time{}, false
 	}
 
