@@ -95,18 +95,19 @@ func appendDay(ctx context.Context, s []Day, target, today time.Time, downstream
 
 type Calendar struct {
 	View
-	CalendarView calendarView
-	Target       time.Time
-	Days         []Day
-	Cache        *cache.Webcal
-	URL          string
-	Error        string
+	CalendarView  calendarView
+	Target, Today time.Time
+	Days          []Day
+	Cache         *cache.Webcal
+	URL           string
+	Error         string
 }
 
 func newCalendar(ctx context.Context, view View, calendarView calendarView, target, today time.Time, downstream *ics.Calendar) Calendar {
 	cal := Calendar{
 		View:         view,
 		Target:       target,
+		Today:        today,
 		CalendarView: calendarView,
 	}
 

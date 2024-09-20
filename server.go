@@ -240,14 +240,34 @@ func (s *Server) HandleMatcherDelete(c *gin.Context) {
 	triggerFormSubmit(c)
 }
 
+type Picker struct {
+	View
+	Target, Today time.Time
+}
+
 func (s *Server) HandleDatePickerMonth(c *gin.Context) {
-	t, err := time.Parse(time.RFC3339, c.Query("date"))
-	if err != nil {
-		handleWebcalErr(c, err)
-		return
+	today := s.now()
+	if t, err := time.Parse(time.RFC3339, c.Query("today")); nil == err {
+		today = t
+	} else {
+		log(c).Warnf("Error parsing today: %s, using server time.", err)
 	}
+	log(c).Debugf("Using today %s", today)
+
+	target := today
+	if t, err := time.Parse(time.RFC3339, c.Query("target")); nil == err {
+		target = t
+	} else {
+		log(c).Warnf("Error parsing target: %s, using today.", err)
+	}
+	log(c).Debugf("Using target %s", today)
+
 	triggerFormSubmit(c)
-	c.HTML(http.StatusOK, "date-picker-month", t)
+	c.HTML(http.StatusOK, "date-picker-month", Picker{
+		View:   newView(c),
+		Target: target,
+		Today:  today,
+	})
 }
 
 func triggerFormSubmit(c *gin.Context) {

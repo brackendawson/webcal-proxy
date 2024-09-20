@@ -301,6 +301,7 @@ func TestServer(t *testing.T) {
 				},
 				CalendarView: server.ViewMonth,
 				Target:       time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Today:        time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
 				Days:         month11Sept2024,
 			},
 		},
@@ -324,6 +325,7 @@ func TestServer(t *testing.T) {
 				},
 				CalendarView: server.ViewMonth,
 				Target:       time.Date(2024, 9, 11, 21, 0, 0, 0, tzNewYork),
+				Today:        time.Date(2024, 9, 11, 21, 0, 0, 0, tzNewYork),
 				Days:         month11Sept2024,
 			},
 		},
@@ -349,6 +351,7 @@ func TestServer(t *testing.T) {
 				},
 				CalendarView: server.ViewMonth,
 				Target:       time.Date(2024, 9, 1, 0, 0, 0, 0, tzNewYork),
+				Today:        time.Date(2023, 12, 11, 20, 0, 0, 0, tzNewYork),
 				Days:         month11Sept2024InTheFuture,
 			},
 		},
@@ -374,6 +377,7 @@ func TestServer(t *testing.T) {
 				},
 				CalendarView: server.ViewMonth,
 				Target:       time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Today:        time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
 				Days:         month11Sept2024WithEvents,
 				Cache: &cache.Webcal{
 					URL: "webcal://CALURL",
@@ -410,6 +414,7 @@ func TestServer(t *testing.T) {
 				},
 				CalendarView: server.ViewMonth,
 				Target:       time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Today:        time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
 				Days:         month11Sept2024WithEvents,
 				Cache: &cache.Webcal{
 					URL: "webcal://CALURL",
@@ -445,6 +450,7 @@ func TestServer(t *testing.T) {
 				},
 				CalendarView: server.ViewMonth,
 				Target:       time.Date(2024, 9, 12, 9, 0, 0, 0, tzSydney),
+				Today:        time.Date(2024, 9, 12, 9, 0, 0, 0, tzSydney),
 				Days:         month11Sept2024WithEventsSydney,
 				Cache: &cache.Webcal{
 					URL: "webcal://CALURL",
@@ -478,6 +484,7 @@ func TestServer(t *testing.T) {
 				},
 				CalendarView: server.ViewMonth,
 				Target:       time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Today:        time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
 				Days:         month11Sept2024,
 				Error:        "Bad exc argument: invalid match parameter \"falafel\" at index 0, should be <FIELD>=<regexp>",
 			},
@@ -503,6 +510,7 @@ func TestServer(t *testing.T) {
 				},
 				CalendarView: server.ViewMonth,
 				Target:       time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Today:        time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
 				Days:         month11Sept2024,
 				Error:        "Bad url. Include a protocol, host, and path, eg: webcal://example.com/events",
 			},
@@ -528,6 +536,7 @@ func TestServer(t *testing.T) {
 				},
 				CalendarView: server.ViewMonth,
 				Target:       time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Today:        time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
 				Days:         month11Sept2024,
 				Error:        "Bad url. Include a protocol, host, and path, eg: webcal://example.com/events",
 			},
@@ -556,6 +565,7 @@ func TestServer(t *testing.T) {
 				},
 				CalendarView: server.ViewMonth,
 				Target:       time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Today:        time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
 				Days:         month11Sept2024WithEvents,
 				Cache: &cache.Webcal{
 					URL: "webcal://CALURL",
@@ -599,6 +609,7 @@ func TestServer(t *testing.T) {
 				},
 				CalendarView: server.ViewMonth,
 				Target:       time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Today:        time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
 				Days:         month11Sept2024WithEvents,
 				URL:          "webcal://example.com?cal=webcal%3A%2F%2FCALURL",
 			},
@@ -635,6 +646,7 @@ func TestServer(t *testing.T) {
 				},
 				CalendarView: server.ViewMonth,
 				Target:       time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Today:        time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
 				Days:         month11Sept2024WithEvents,
 				Cache: &cache.Webcal{
 					URL: "webcal://CALURL",
@@ -679,6 +691,7 @@ func TestServer(t *testing.T) {
 				},
 				CalendarView: server.ViewMonth,
 				Target:       time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Today:        time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
 				Days:         month11Sept2024,
 			},
 		},
@@ -751,11 +764,69 @@ func TestServer(t *testing.T) {
 		},
 		"htmx_date_picker": {
 			inputMethod:          http.MethodGet,
-			inputQuery:           "date-picker-month?date=2024-08-20T21%3A43%3A23%2B05%3A00",
+			inputQuery:           "date-picker-month?target=2024-08-20T21%3A43%3A23%2B05%3A00&today=2024-09-20T21%3A43%3A23%2B05%3A00",
 			expectedStatus:       http.StatusOK,
 			expectedHeaders:      map[string]string{"HX-Trigger-After-Settle": `{"input":{"target":"#trigger-submit"}}`},
 			expectedTemplateName: "date-picker-month",
-			expectedTemplateObj:  time.Date(2024, 8, 20, 21, 43, 23, 0, time.FixedZone("", 5*3600)),
+			expectedTemplateObj: server.Picker{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Target: time.Date(2024, 8, 20, 21, 43, 23, 0, time.FixedZone("", 5*3600)),
+				Today:  time.Date(2024, 9, 20, 21, 43, 23, 0, time.FixedZone("", 5*3600)),
+			},
+		},
+		"htmx_date_picker_bad_target": {
+			inputMethod:          http.MethodGet,
+			inputQuery:           "date-picker-month?target=202dfgdfg2B05%3A00&today=2024-09-20T21%3A43%3A23%2B05%3A00",
+			expectedStatus:       http.StatusOK,
+			expectedHeaders:      map[string]string{"HX-Trigger-After-Settle": `{"input":{"target":"#trigger-submit"}}`},
+			expectedTemplateName: "date-picker-month",
+			expectedTemplateObj: server.Picker{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Target: time.Date(2024, 9, 20, 21, 43, 23, 0, time.FixedZone("", 5*3600)),
+				Today:  time.Date(2024, 9, 20, 21, 43, 23, 0, time.FixedZone("", 5*3600)),
+			},
+		},
+		"htmx_date_picker_bad_today": {
+			inputMethod: http.MethodGet,
+			inputQuery:  "date-picker-month?target=2024-08-20T21%3A43%3A23%2B05%3A00&today=2024dfgdfgdfgfg3%2B05%3A00",
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time {
+					return time.Date(2024, 9, 20, 23, 28, 0, 0, time.UTC)
+				}),
+			},
+			expectedStatus:       http.StatusOK,
+			expectedHeaders:      map[string]string{"HX-Trigger-After-Settle": `{"input":{"target":"#trigger-submit"}}`},
+			expectedTemplateName: "date-picker-month",
+			expectedTemplateObj: server.Picker{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Target: time.Date(2024, 8, 20, 21, 43, 23, 0, time.FixedZone("", 5*3600)),
+				Today:  time.Date(2024, 9, 20, 23, 28, 0, 0, time.UTC),
+			},
+		},
+		"htmx_date_picker_no_query": {
+			inputMethod: http.MethodGet,
+			inputQuery:  "date-picker-month",
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time {
+					return time.Date(2024, 9, 20, 23, 28, 0, 0, time.UTC)
+				}),
+			},
+			expectedStatus:       http.StatusOK,
+			expectedHeaders:      map[string]string{"HX-Trigger-After-Settle": `{"input":{"target":"#trigger-submit"}}`},
+			expectedTemplateName: "date-picker-month",
+			expectedTemplateObj: server.Picker{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Target: time.Date(2024, 9, 20, 23, 28, 0, 0, time.UTC),
+				Today:  time.Date(2024, 9, 20, 23, 28, 0, 0, time.UTC),
+			},
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
