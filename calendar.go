@@ -29,13 +29,13 @@ type Day struct {
 	Events  []Event
 }
 
-func appendDay(ctx context.Context, s []Day, focus time.Time, downstream *ics.Calendar, days ...time.Time) []Day {
+func appendDay(ctx context.Context, s []Day, target, today time.Time, downstream *ics.Calendar, days ...time.Time) []Day {
 	for _, d := range days {
 		newDay := Day{
 			Number:  d.Day(),
 			Weekday: strings.ToLower(d.Weekday().String()),
-			Today:   d.Month() == focus.Month() && d.Day() == focus.Day(),
-			Spill:   d.Month() != focus.Month(),
+			Today:   d.Month() == today.Month() && d.Day() == today.Day(),
+			Spill:   d.Month() != target.Month(),
 		}
 
 		if downstream == nil {
@@ -60,14 +60,14 @@ func appendDay(ctx context.Context, s []Day, focus time.Time, downstream *ics.Ca
 			// Date only (no zone) events are parsed to midnight on time.Local,
 			// don't convert this to user's time zone.
 			if newEvent.StartTime.Location() != time.Local {
-				newEvent.StartTime = newEvent.StartTime.In(focus.Location())
+				newEvent.StartTime = newEvent.StartTime.In(target.Location())
 			}
 			if newEvent.EndTime, err = event.GetEndAt(); err != nil {
 				log(ctx).Warnf("Invalid event end time: %s", err) // TODO contribute a defined error here
 				continue
 			}
 			if newEvent.EndTime.Location() != time.Local {
-				newEvent.EndTime = newEvent.EndTime.In(focus.Location())
+				newEvent.EndTime = newEvent.EndTime.In(target.Location())
 			}
 
 			if newEvent.StartTime.Year() != d.Year() ||
@@ -96,31 +96,30 @@ func appendDay(ctx context.Context, s []Day, focus time.Time, downstream *ics.Ca
 type Calendar struct {
 	View
 	CalendarView calendarView
-	Title        string
+	Target       time.Time
 	Days         []Day
 	Cache        *cache.Webcal
 	URL          string
 	Error        string
 }
 
-func newCalendar(ctx context.Context, view View, calendarView calendarView, focus time.Time, downstream *ics.Calendar) Calendar {
-	// TODO allow moving the focus date, need to think about the today date
+func newCalendar(ctx context.Context, view View, calendarView calendarView, target, today time.Time, downstream *ics.Calendar) Calendar {
 	cal := Calendar{
 		View:         view,
+		Target:       target,
 		CalendarView: calendarView,
 	}
 
-	cal.Title = focus.Format("January 2006")
-
-	float := focus.AddDate(0, 0, -focus.Day()+1)
+	float := target.AddDate(0, 0, -target.Day()+1)
+	endOfMonth := float.AddDate(0, 1, 0)
 	float = float.AddDate(0, 0, -mondayIndexWeekday(float.Weekday()))
 
-	for float.Month() <= focus.Month() {
-		cal.Days = appendDay(ctx, cal.Days, focus, downstream, float)
+	for float.Before(endOfMonth) {
+		cal.Days = appendDay(ctx, cal.Days, target, today, downstream, float)
 		float = float.AddDate(0, 0, 1)
 	}
 	for float.Weekday() != time.Monday {
-		cal.Days = appendDay(ctx, cal.Days, focus, downstream, float)
+		cal.Days = appendDay(ctx, cal.Days, target, today, downstream, float)
 		float = float.AddDate(0, 0, 1)
 	}
 

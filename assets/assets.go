@@ -20,7 +20,8 @@ var (
 		"formatTime": func(format string, t time.Time) string {
 			return t.Format(format)
 		},
-		"dict": dict,
+		"dict":    dict,
+		"rfc3339": func() string { return time.RFC3339 },
 	}
 )
 

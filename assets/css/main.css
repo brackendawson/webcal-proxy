@@ -210,3 +210,33 @@ footer {
 .matcher-group:nth-child(1 of .matcher-group) .del-matcher {
     display: none;
 }
+
+#date-picker {
+    width: auto;
+    justify-content: center;
+}
+
+#date-picker * {
+    flex: 0 0 fit-content;
+}
+
+#date-pick-year {
+    flex: 0 0;
+    min-width: 4em;
+}
+
+#date-pick-prev-month::after {
+    content: '<';
+}
+
+#date-pick-next-month:after {
+    content: '>';
+}
+
+#date-pick-prev-year:after {
+    content: '-';
+}
+
+#date-pick-next-year:after {
+    content: '+';
+}

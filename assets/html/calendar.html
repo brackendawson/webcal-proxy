@@ -8,7 +8,6 @@
 
 {{ define "month" }}
 <div id="calendar">
-    <div class="calendar-title">{{ .Title }}</div>
     <div class="calendar-dow">Monday</div>
     <div class="calendar-dow">Tuesday</div>
     <div class="calendar-dow">Wednesday</div>
@@ -40,10 +39,11 @@
 {{ else }}
     {{ template "_placeholder-url" . }}
 {{ end }}
+{{ template "date-picker-month" .Target }}
 {{ end }}
 
 {{ define "_placeholder-error" }}
-<div id="error" class="input-group no-error" data-hx-swap-oob="true"></div>
+<div id="error" class="input-group no-error" data-hx-swap-oob="true"></div> <!-- TODO use a bootstrap notification? -->
 {{ end }}
 
 {{ define "_error" }}
@@ -59,7 +59,7 @@
 {{ define "_url" }}
 <div id="url" class="input-group url" data-hx-swap-oob="true">
     <span id="url-label" class="input-group-text url">Your URL</span>
-    <input type="text" id="url-box" class="form-control url" disabled="disabled" value="{{ . }}">
+    <input type="text" id="url-box" class="form-control url" value="{{ . }}" readonly>
     <button id="url-copy" class="btn btn-outline-secondary url" type="button"><i id="url-copy-icon" class="fa-regular fa-copy"></i> Copy</button>
 </div>
 {{ end }}

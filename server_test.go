@@ -300,7 +300,7 @@ func TestServer(t *testing.T) {
 					ArgHost: "example.com",
 				},
 				CalendarView: server.ViewMonth,
-				Title:        "September 2024",
+				Target:       time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
 				Days:         month11Sept2024,
 			},
 		},
@@ -323,8 +323,33 @@ func TestServer(t *testing.T) {
 					ArgHost: "example.com",
 				},
 				CalendarView: server.ViewMonth,
-				Title:        "September 2024",
+				Target:       time.Date(2024, 9, 11, 21, 0, 0, 0, tzNewYork),
 				Days:         month11Sept2024,
+			},
+		},
+		"htmx_calendar_with_target_time": {
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			inputBody: []byte(url.Values{
+				"user-tz":      []string{"America/New_York"},
+				"target-month": []string{"9"},
+				"target-year":  []string{"2024"},
+			}.Encode()),
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2023, 12, 12, 1, 0, 0, 0, time.UTC) }),
+			},
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Calendar{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				CalendarView: server.ViewMonth,
+				Target:       time.Date(2024, 9, 1, 0, 0, 0, 0, tzNewYork),
+				Days:         month11Sept2024InTheFuture,
 			},
 		},
 		"htmx_calendar_with_events": {
@@ -348,7 +373,7 @@ func TestServer(t *testing.T) {
 					ArgHost: "example.com",
 				},
 				CalendarView: server.ViewMonth,
-				Title:        "September 2024",
+				Target:       time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
 				Days:         month11Sept2024WithEvents,
 				Cache: &cache.Webcal{
 					URL: "webcal://CALURL",
@@ -384,7 +409,7 @@ func TestServer(t *testing.T) {
 					ArgProxyPath: "/webcal-proxy",
 				},
 				CalendarView: server.ViewMonth,
-				Title:        "September 2024",
+				Target:       time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
 				Days:         month11Sept2024WithEvents,
 				Cache: &cache.Webcal{
 					URL: "webcal://CALURL",
@@ -419,7 +444,7 @@ func TestServer(t *testing.T) {
 					ArgHost: "example.com",
 				},
 				CalendarView: server.ViewMonth,
-				Title:        "September 2024",
+				Target:       time.Date(2024, 9, 12, 9, 0, 0, 0, tzSydney),
 				Days:         month11Sept2024WithEventsSydney,
 				Cache: &cache.Webcal{
 					URL: "webcal://CALURL",
@@ -452,7 +477,7 @@ func TestServer(t *testing.T) {
 					ArgHost: "example.com",
 				},
 				CalendarView: server.ViewMonth,
-				Title:        "September 2024",
+				Target:       time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
 				Days:         month11Sept2024,
 				Error:        "Bad exc argument: invalid match parameter \"falafel\" at index 0, should be <FIELD>=<regexp>",
 			},
@@ -477,7 +502,7 @@ func TestServer(t *testing.T) {
 					ArgHost: "example.com",
 				},
 				CalendarView: server.ViewMonth,
-				Title:        "September 2024",
+				Target:       time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
 				Days:         month11Sept2024,
 				Error:        "Bad url. Include a protocol, host, and path, eg: webcal://example.com/events",
 			},
@@ -502,7 +527,7 @@ func TestServer(t *testing.T) {
 					ArgHost: "example.com",
 				},
 				CalendarView: server.ViewMonth,
-				Title:        "September 2024",
+				Target:       time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
 				Days:         month11Sept2024,
 				Error:        "Bad url. Include a protocol, host, and path, eg: webcal://example.com/events",
 			},
@@ -530,7 +555,7 @@ func TestServer(t *testing.T) {
 					ArgHost: "example.com",
 				},
 				CalendarView: server.ViewMonth,
-				Title:        "September 2024",
+				Target:       time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
 				Days:         month11Sept2024WithEvents,
 				Cache: &cache.Webcal{
 					URL: "webcal://CALURL",
@@ -573,7 +598,7 @@ func TestServer(t *testing.T) {
 					ArgHost: "example.com",
 				},
 				CalendarView: server.ViewMonth,
-				Title:        "September 2024",
+				Target:       time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
 				Days:         month11Sept2024WithEvents,
 				URL:          "webcal://example.com?cal=webcal%3A%2F%2FCALURL",
 			},
@@ -609,7 +634,7 @@ func TestServer(t *testing.T) {
 					ArgHost: "example.com",
 				},
 				CalendarView: server.ViewMonth,
-				Title:        "September 2024",
+				Target:       time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
 				Days:         month11Sept2024WithEvents,
 				Cache: &cache.Webcal{
 					URL: "webcal://CALURL",
@@ -653,7 +678,7 @@ func TestServer(t *testing.T) {
 					ArgHost: "example.com",
 				},
 				CalendarView: server.ViewMonth,
-				Title:        "September 2024",
+				Target:       time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
 				Days:         month11Sept2024,
 			},
 		},
@@ -709,7 +734,6 @@ func TestServer(t *testing.T) {
 				},
 			},
 		},
-
 		"fails_to_pre_fill_the_form": {
 			inputMethod: http.MethodGet,
 			inputQuery:  "?cal=webcal%3A%2F%2Fyolo.com%2Fevents.ics&mrg=yes",
@@ -724,6 +748,14 @@ func TestServer(t *testing.T) {
 				},
 				Error: `Bad argument "yes" for "mrg", should be boolean. Enter your webcal URL.`,
 			},
+		},
+		"htmx_date_picker": {
+			inputMethod:          http.MethodGet,
+			inputQuery:           "date-picker-month?date=2024-08-20T21%3A43%3A23%2B05%3A00",
+			expectedStatus:       http.StatusOK,
+			expectedHeaders:      map[string]string{"HX-Trigger-After-Settle": `{"input":{"target":"#trigger-submit"}}`},
+			expectedTemplateName: "date-picker-month",
+			expectedTemplateObj:  time.Date(2024, 8, 20, 21, 43, 23, 0, time.FixedZone("", 5*3600)),
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
