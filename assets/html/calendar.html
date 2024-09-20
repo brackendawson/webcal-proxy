@@ -28,23 +28,17 @@
     {{ end }}
 </div>
 {{ if .Cache }}
-<input id="ical-cache" name="ical-cache" data-hx-swap-oob="true" value="{{ .Cache.Encode }}" type="hidden">
+    <input id="ical-cache" name="ical-cache" data-hx-swap-oob="true" value="{{ .Cache.Encode }}" type="hidden">
 {{ end }}
 {{ with .Error }}
-<div id="error" class="input-group error" data-hx-swap-oob="true">
-    <span id="error-label" class="input-group-text notification error">{{ . }}</span>
-</div>
+    {{ template "_error" . }}
 {{ else }}
-{{ template "_placeholder-error" . }}
+    {{ template "_placeholder-error" . }}
 {{ end }}
 {{ with .URL }}
-<div id="url" class="input-group url" data-hx-swap-oob="true">
-    <span id="url-label" class="input-group-text url">Your URL</span>
-    <input type="text" id="url-box" class="form-control url" disabled="disabled" value="{{ . }}">
-    <button id="url-copy" class="btn btn-outline-secondary url" type="button"><i id="url-copy-icon" class="fa-regular fa-copy"></i> Copy</button>
-</div>
+    {{ template "_url" . }}
 {{ else }}
-{{ template "_placeholder-url" . }}
+    {{ template "_placeholder-url" . }}
 {{ end }}
 {{ end }}
 
@@ -52,6 +46,20 @@
 <div id="error" class="input-group no-error" data-hx-swap-oob="true"></div>
 {{ end }}
 
+{{ define "_error" }}
+<div id="error" class="input-group error" data-hx-swap-oob="true">
+    <span id="error-label" class="input-group-text notification error">{{ . }}</span>
+</div>
+{{ end }}
+
 {{ define "_placeholder-url" }}
 <div id="url" class="input-group no-url" data-hx-swap-oob="true"></div>
+{{ end }}
+
+{{ define "_url" }}
+<div id="url" class="input-group url" data-hx-swap-oob="true">
+    <span id="url-label" class="input-group-text url">Your URL</span>
+    <input type="text" id="url-box" class="form-control url" disabled="disabled" value="{{ . }}">
+    <button id="url-copy" class="btn btn-outline-secondary url" type="button"><i id="url-copy-icon" class="fa-regular fa-copy"></i> Copy</button>
+</div>
 {{ end }}

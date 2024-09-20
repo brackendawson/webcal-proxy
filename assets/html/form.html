@@ -1,23 +1,77 @@
-{{ define "matcher-group" }}
+{{ define "_form" }}
+<form id="config-form"
+    data-hx-post="{{ .ProxyPath }}/"
+    data-hx-headers='{"X-HX-Host": "{{ .Host }}"}'
+    data-hx-target="#calendar"
+    data-hx-swap="outerHTML"
+    data-hx-trigger="
+        {{ if not .Error }}
+            load delay:1s,
+        {{ end }}
+        input from:#trigger-submit,
+        input delay:1s from:#input-url,
+        change from:#input-mrg,
+        change[event.target.matches('.matcher-property')] delay:1s,
+        change[event.target.matches('.matcher-operator')] delay:1s,
+        input[event.target.matches('.matcher-value')] delay:1s,
+        submitMyForm"
+    >
+    <div class="input-group">
+        <input id="input-url"
+            type="text"
+            name="cal"
+            class="form-control"
+            placeholder="enter a webcal url"
+            value="{{ .Options.URL }}"
+        >
+    </div>
+    {{ range .Options.Includes }}
+        {{ template "_matcher-group" (dict "Operator" "inc" "Arg" .) }}
+    {{ else }}
+        {{ template "template-matcher-group" }}
+    {{ end }}
+    {{ range .Options.Excludes }}
+        {{ template "_matcher-group" (dict "Operator" "exc" "Arg" .) }}
+    {{ end }}
+    <div class="form-check">
+        <input id="input-mrg" name="mrg" class="form-check-input" type="checkbox" value="true" {{ with .Options.Merge }}checked{{ end }}>
+        <label class="form-check-label" for="input-mrg">Merge overlapping events</label>
+    </div>
+    <input id="user-tz" name="user-tz" type="hidden">
+    <input id="ical-cache" name="ical-cache" type="hidden">
+    <input id="trigger-submit" type="hidden">
+    <div id="loading" class="input-group">
+        <span id="loading-label" class="input-group-text notification">Loading...</span>
+    </div>
+    {{ template "_placeholder-url" . }}
+    {{ with .Error }}
+        {{ template "_error" . }}
+    {{ else }}
+        {{ template "_placeholder-error" . }}
+    {{ end }}
+</form>
+{{ end }}
+
+{{ define "_matcher-group" }}
 <div class="input-group matcher-group">
     <select class="form-select property-select matcher matcher-property">
-        <option value="SUMMARY">Summary</option>
-        <option value="DESCRIPTION">Description</option>
-        <option value="LOCATION">Location</option>
+        <option value="SUMMARY"{{ if eq .Arg.Property "SUMMARY" }} selected{{ end }}>Summary</option>
+        <option value="DESCRIPTION"{{ if eq .Arg.Property "DESCRIPTION" }} selected{{ end }}>Description</option>
+        <option value="LOCATION"{{ if eq .Arg.Property "LOCATION" }} selected{{ end }}>Location</option>
         <option disabled>-</option>
-        <option value="ATTACH">Attachment</option>
-        <option value="CATEGORIES">Categories</option>
-        <option value="CLASS">Class</option>
-        <option value="COMMENT">Comment</option>
-        <option value="RESOURCES">Resources</option>
-        <option value="STATUS">Status</option>
-        <option value="TRANSP">Time Transparency</option>
+        <option value="ATTACH"{{ if eq .Arg.Property "ATTACH" }} selected{{ end }}>Attachment</option>
+        <option value="CATEGORIES"{{ if eq .Arg.Property "CATEGORIES" }} selected{{ end }}>Categories</option>
+        <option value="CLASS"{{ if eq .Arg.Property "CLASS" }} selected{{ end }}>Class</option>
+        <option value="COMMENT"{{ if eq .Arg.Property "COMMENT" }} selected{{ end }}>Comment</option>
+        <option value="RESOURCES"{{ if eq .Arg.Property "RESOURCES" }} selected{{ end }}>Resources</option>
+        <option value="STATUS"{{ if eq .Arg.Property "STATUS" }} selected{{ end }}>Status</option>
+        <option value="TRANSP"{{ if eq .Arg.Property "TRANSP" }} selected{{ end }}>Time Transparency</option>
     </select>
     <select class="form-select match-select matcher matcher-operator">
-        <option value="inc">=~</option>
-        <option value="exc">!~</option>
+        <option value="inc"{{ if eq .Operator "inc" }} selected{{ end }}>=~</option>
+        <option value="exc"{{ if eq .Operator "exc" }} selected{{ end }}>!~</option>
     </select>
-    <input type="text" class="form-control matcher matcher-value" placeholder="regex">
+    <input type="text" class="form-control matcher matcher-value" placeholder="regex" value="{{ .Arg.Regex }}">
     <input class="matcher-arg" name="" value="" type="hidden">
     <button
         class="btn btn-outline-secondary del-matcher"
@@ -40,4 +94,8 @@
         data-hx-params="none"
         ><i class="fa-solid fa-plus"></i></button>
     </div>
+{{ end }}
+
+{{ define "template-matcher-group" }}
+    {{ template "_matcher-group" (dict "Operator" "mrg" "Arg" dict) }}
 {{ end }}

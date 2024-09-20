@@ -263,8 +263,10 @@ func TestServer(t *testing.T) {
 			inputHeaders:         map[string]string{"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8"},
 			expectedStatus:       http.StatusOK,
 			expectedTemplateName: "index",
-			expectedTemplateObj: server.View{
-				ArgHost: "example.com",
+			expectedTemplateObj: server.Index{
+				View: server.View{
+					ArgHost: "example.com",
+				},
 			},
 		},
 		"html_index_behind_reverse_proxy": {
@@ -275,9 +277,11 @@ func TestServer(t *testing.T) {
 			},
 			expectedStatus:       http.StatusOK,
 			expectedTemplateName: "index",
-			expectedTemplateObj: server.View{
-				ArgHost:      "example.com",
-				ArgProxyPath: "/webcal-proxy",
+			expectedTemplateObj: server.Index{
+				View: server.View{
+					ArgHost:      "example.com",
+					ArgProxyPath: "/webcal-proxy",
+				},
 			},
 		},
 		"htmx_calendar": {
@@ -661,7 +665,7 @@ func TestServer(t *testing.T) {
 				"X-Forwarded-URI": "/webcal-proxy",
 			},
 			expectedStatus:       http.StatusOK,
-			expectedTemplateName: "matcher-group",
+			expectedTemplateName: "template-matcher-group",
 			expectedTemplateObj: server.View{
 				ArgHost:      "example.com",
 				ArgProxyPath: "/webcal-proxy",
@@ -678,6 +682,47 @@ func TestServer(t *testing.T) {
 			expectedBody:   ptrTo([]byte(nil)),
 			expectedHeaders: map[string]string{
 				"HX-Trigger-After-Settle": `{"input":{"target":"#trigger-submit"}}`,
+			},
+		},
+		"pre_fills_the_form_from_url": {
+			inputMethod: http.MethodGet,
+			inputQuery:  "?cal=webcal%3A%2F%2Fyolo.com%2Fevents.ics&inc=SUMMARY%3Dinteresting&inc=SUMMARY%3Dmiddling&exc=DESCRIPTION%3Dboring&mrg=true",
+			inputHeaders: map[string]string{
+				"Accept": "text/html",
+			},
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "index",
+			expectedTemplateObj: server.Index{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Options: server.Options{
+					URL: "webcal://yolo.com/events.ics",
+					Includes: []server.Matcher{
+						{Property: "SUMMARY", Regex: "interesting"},
+						{Property: "SUMMARY", Regex: "middling"},
+					},
+					Excludes: []server.Matcher{
+						{Property: "DESCRIPTION", Regex: "boring"},
+					},
+					Merge: true,
+				},
+			},
+		},
+
+		"fails_to_pre_fill_the_form": {
+			inputMethod: http.MethodGet,
+			inputQuery:  "?cal=webcal%3A%2F%2Fyolo.com%2Fevents.ics&mrg=yes",
+			inputHeaders: map[string]string{
+				"Accept": "text/html",
+			},
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "index",
+			expectedTemplateObj: server.Index{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Error: `Bad argument "yes" for "mrg", should be boolean. Enter your webcal URL.`,
 			},
 		},
 	} {

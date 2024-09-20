@@ -93,9 +93,28 @@ func (v View) ProxyPath() string {
 	return v.ArgProxyPath
 }
 
+type Index struct {
+	View
+	Options Options
+	Error   string
+}
+
+func newIndex(c *gin.Context) Index {
+	i := Index{
+		View: newView(c),
+	}
+	opts, err := getCalendarOptions(c, c.QueryArray)
+	if err != nil {
+		i.Error = err.Error() + " Enter your webcal URL."
+		return i
+	}
+	i.Options = opts.Options()
+	return i
+}
+
 func (s *Server) HandleWebcal(c *gin.Context) {
 	if isBrowser(c) {
-		c.HTML(http.StatusOK, "index", newView(c))
+		c.HTML(http.StatusOK, "index", newIndex(c))
 		return
 	}
 
@@ -177,7 +196,7 @@ func isBrowser(c *gin.Context) bool {
 }
 
 func (s *Server) HandleMatcher(c *gin.Context) {
-	c.HTML(http.StatusOK, "matcher-group", newView(c))
+	c.HTML(http.StatusOK, "template-matcher-group", newView(c))
 }
 
 func (s *Server) HandleMatcherDelete(c *gin.Context) {

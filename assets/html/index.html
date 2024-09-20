@@ -16,43 +16,7 @@
             <p>Filter and merge events from webcal:// feeds</p>
         </header>
         <main>
-            <!-- TODO Pre-fill the form from the URL -->
-            <form id="config-form"
-            data-hx-post="{{ .ProxyPath }}/"
-            data-hx-headers='{"X-HX-Host": "{{ .Host }}"}'
-            data-hx-target="#calendar"
-            data-hx-swap="outerHTML"
-            data-hx-trigger="load delay:1s,
-                input from:#trigger-submit,
-                input delay:1s from:#input-url,
-                change from:#input-mrg,
-                change[event.target.matches('.matcher-property')] delay:1s,
-                change[event.target.matches('.matcher-operator')] delay:1s,
-                input[event.target.matches('.matcher-value')] delay:1s,
-                submitMyForm"
-                >
-                <div class="input-group">
-                    <input id="input-url"
-                        type="text"
-                        name="cal"
-                        class="form-control"
-                        placeholder="enter a webcal url"
-                    >
-                </div>
-                {{ template "matcher-group" . }}
-                <div class="form-check">
-                    <input id="input-mrg" name="mrg" class="form-check-input" type="checkbox" value="true">
-                    <label class="form-check-label" for="input-mrg">Merge overlapping events</label>
-                </div>
-                <input id="user-tz" name="user-tz" type="hidden">
-                <input id="ical-cache" name="ical-cache" type="hidden">
-                <input id="trigger-submit" type="hidden">
-                <div id="loading" class="input-group">
-                    <span id="loading-label" class="input-group-text notification">Loading...</span>
-                </div>
-                {{ template "_placeholder-url" . }}
-                {{ template "_placeholder-error" . }}
-            </form>
+            {{ template "_form" . }}
             <div id="calendar"></div>
         </main>
         <footer>

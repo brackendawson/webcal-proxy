@@ -8,9 +8,29 @@ import (
 	ics "github.com/arran4/golang-ical"
 )
 
+var (
+	defaultMatches = matchGroup{
+		{
+			property:   ics.ComponentPropertySummary,
+			expression: regexp.MustCompile(".*"),
+		},
+	}
+)
+
+type Matcher struct {
+	Property, Regex string
+}
+
 type matcher struct {
 	property   ics.ComponentProperty
 	expression *regexp.Regexp
+}
+
+func (m matcher) Matcher() Matcher {
+	return Matcher{
+		Property: string(m.property),
+		Regex:    m.expression.String(),
+	}
 }
 
 type matchGroup []matcher

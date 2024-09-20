@@ -20,7 +20,12 @@ func getDownstreamCalendar(upstream *ics.Calendar, opts calenderOptions) *ics.Ca
 
 	var events []*ics.VEvent
 	for _, event := range upstream.Events() {
-		if opts.includes.matches(event) && !opts.excludes.matches(event) {
+		includes := opts.includes
+		if len(opts.includes) == 0 {
+			includes = defaultMatches
+		}
+
+		if includes.matches(event) && !opts.excludes.matches(event) {
 			events = append(events, event)
 		}
 	}

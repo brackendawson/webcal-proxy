@@ -4,12 +4,18 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strconv"
 
-	ics "github.com/arran4/golang-ical"
 	"github.com/gin-gonic/gin"
 )
+
+type Options struct {
+	URL      string
+	Includes []Matcher
+	Excludes []Matcher
+	Merge    bool
+	Error    string
+}
 
 type calenderOptions struct {
 	url                string
@@ -34,14 +40,6 @@ func getCalendarOptions(ctx context.Context, getArray func(string) []string) (ca
 			http.StatusBadRequest,
 			"Bad inc argument: %s", err.Error(),
 		)
-	}
-	if len(opts.includes) == 0 {
-		opts.includes = matchGroup{
-			{
-				property:   ics.ComponentPropertySummary,
-				expression: regexp.MustCompile(".*"),
-			},
-		}
 	}
 
 	opts.excludes, err = parseMatchers(getArray("exc"))
@@ -81,6 +79,22 @@ func getString(getArray func(string) []string, key string) string {
 		return ""
 	}
 	return ss[0]
+}
+
+func (c calenderOptions) Options() Options {
+	o := Options{
+		URL:   c.url,
+		Merge: c.merge,
+	}
+
+	for _, i := range c.includes {
+		o.Includes = append(o.Includes, i.Matcher())
+	}
+	for _, e := range c.excludes {
+		o.Excludes = append(o.Excludes, e.Matcher())
+	}
+
+	return o
 }
 
 func clientURL(c *gin.Context) *url.URL {
