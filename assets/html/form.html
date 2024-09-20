@@ -25,13 +25,15 @@
             value="{{ .Options.URL }}"
         >
     </div>
-    {{ range .Options.Includes }}
-        {{ template "_matcher-group" (dict "Operator" "inc" "Arg" .) }}
-    {{ else }}
+    {{ if and (eq (len .Options.Includes) 0) (eq (len .Options.Excludes) 0) }}
         {{ template "template-matcher-group" }}
-    {{ end }}
-    {{ range .Options.Excludes }}
-        {{ template "_matcher-group" (dict "Operator" "exc" "Arg" .) }}
+    {{ else }}
+        {{ range .Options.Includes }}
+            {{ template "_matcher-group" (dict "Operator" "inc" "Arg" .) }}
+        {{ end }}
+        {{ range .Options.Excludes }}
+            {{ template "_matcher-group" (dict "Operator" "exc" "Arg" .) }}
+        {{ end }}
     {{ end }}
     <div class="form-check">
         <input id="input-mrg" name="mrg" class="form-check-input" type="checkbox" value="true" {{ with .Options.Merge }}checked{{ end }}>
