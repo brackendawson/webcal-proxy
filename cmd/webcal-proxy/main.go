@@ -23,7 +23,7 @@ func main() {
 	flag.StringVar(&logFile, "log-file", "", "File to log to")
 	flag.TextVar(&logLevel, "log-level", logrus.InfoLevel, "log level")
 	flag.BoolVar(&secureConfig.IsDevelopment, "dev", false, "disables security policies that prevent http://localhost from working")
-	flag.StringVar(&addr, "addr", ":80", "local address:port to bind to")
+	flag.StringVar(&addr, "addr", ":8080", "local address:port to bind to")
 	flag.IntVar(&maxConns, "max-conns", 8, "maximum total upstream connections")
 	flag.Parse()
 
@@ -41,6 +41,10 @@ func main() {
 
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
+	r.RedirectTrailingSlash = false // be permissie, gin is not aware of Proxy Path
+	r.RedirectFixedPath = true
+	secureConfig.SSLRedirect = false                                                                                  // TLS should be handled by reverse proxy
+	secureConfig.ContentSecurityPolicy = "default-src 'self'; script-src 'self' 'unsafe-eval'; img-src 'self' data:;" // HTMX event filters need eval
 	r.Use(secure.New(secureConfig))
 	server.New(r, server.MaxConns(maxConns))
 

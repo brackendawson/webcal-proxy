@@ -27,13 +27,14 @@
         >
     </div>
     {{ if and (eq (len .Options.Includes) 0) (eq (len .Options.Excludes) 0) }}
-        {{ template "template-matcher-group" }}
+        {{ template "template-matcher-group" . }}
     {{ else }}
+        {{ $outer := . }}
         {{ range .Options.Includes }}
-            {{ template "_matcher-group" (dict "Operator" "inc" "Arg" .) }}
+            {{ template "_matcher-group" (dict "Operator" "inc" "Arg" . "ProxyPath" $outer.ProxyPath "Host" $outer.Host) }}
         {{ end }}
         {{ range .Options.Excludes }}
-            {{ template "_matcher-group" (dict "Operator" "exc" "Arg" .) }}
+            {{ template "_matcher-group" (dict "Operator" "exc" "Arg" . "ProxyPath" $outer.ProxyPath "Host" $outer.Host) }}
         {{ end }}
     {{ end }}
     <div class="form-check">
@@ -120,7 +121,7 @@
 {{ end }}
 
 {{ define "template-matcher-group" }}
-    {{ template "_matcher-group" (dict "Operator" "mrg" "Arg" dict) }}
+    {{ template "_matcher-group" (dict "Operator" "mrg" "Arg" dict "ProxyPath" .ProxyPath "host" .Host) }}
 {{ end }}
 
 {{ define "date-picker-month" }}
@@ -131,7 +132,7 @@
     <button id="date-pick-prev-month"
         class="btn btn-outline-secondary"
         type="button"
-        data-hx-get="/date-picker-month"
+        data-hx-get="{{ .ProxyPath }}/date-picker-month"
         data-hx-headers='{"X-HX-Host": "{{ .Host }}"}'
         data-hx-vals='{"target":"{{ (.Target.AddDate 0 -1 0).Format rfc3339 }}","today":"{{ .Today.Format rfc3339 }}"}'
         data-hx-target="#date-picker"
@@ -140,7 +141,7 @@
         <button id="date-pick-today"
         class="btn btn-outline-secondary"
         type="button"
-        data-hx-get="/date-picker-month"
+        data-hx-get="{{ .ProxyPath }}/date-picker-month"
         data-hx-headers='{"X-HX-Host": "{{ .Host }}"}'
         data-hx-vals='{"target":"{{ .Today.Format rfc3339 }}","today":"{{ .Today.Format rfc3339 }}"}'
         data-hx-target="#date-picker"
@@ -163,7 +164,7 @@
     <button id="date-pick-prev-year" 
         class="btn btn-outline-secondary"
         type="button"
-        data-hx-get="/date-picker-month"
+        data-hx-get="{{ .ProxyPath }}/date-picker-month"
         data-hx-headers='{"X-HX-Host": "{{ .Host }}"}'
         data-hx-vals='{"target":"{{ (.Target.AddDate -1 0 0).Format rfc3339 }}","today":"{{ .Today.Format rfc3339 }}"}'
         data-hx-target="#date-picker"
@@ -173,7 +174,7 @@
     <button id="date-pick-next-year"
         class="btn btn-outline-secondary"
         type="button"
-        data-hx-get="/date-picker-month"
+        data-hx-get="{{ .ProxyPath }}/date-picker-month"
         data-hx-headers='{"X-HX-Host": "{{ .Host }}"}'
         data-hx-vals='{"target":"{{ (.Target.AddDate 1 0 0).Format rfc3339 }}","today":"{{ .Today.Format rfc3339 }}"}'
         data-hx-target="#date-picker"
@@ -182,7 +183,7 @@
     <button id="date-pick-next-month"
         class="btn btn-outline-secondary"
         type="button"
-        data-hx-get="/date-picker-month"
+        data-hx-get="{{ .ProxyPath }}/date-picker-month"
         data-hx-headers='{"X-HX-Host": "{{ .Host }}"}'
         data-hx-vals='{"target":"{{ (.Target.AddDate 0 1 0).Format rfc3339 }}","today":"{{ .Today.Format rfc3339 }}"}'
         data-hx-target="#date-picker"

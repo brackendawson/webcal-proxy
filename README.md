@@ -10,7 +10,7 @@ A simple server to filter events from webcal feeds.
 #### Arguments
 Usage of webcal-proxy:
 * -addr string
-local address:port to bind to (default ":80")
+local address:port to bind to (default ":8080")
 * -logfile string
 File to log to
 * -log-level string
@@ -24,9 +24,9 @@ The server should be run behind a reverse proxy which terminates TLS because the
 #### Proxy Path
 If the reverse proxy uses a path then provide it in the `X-Forwarded-URI` header. Example nginx config:
 ```nginx
-location /webcal-proxy {
-    proxy_pass          http://127.0.0.1:80;
-    rewrite             ^/matomo(.*)$ $1 break;
+location /webcal-proxy/ {
+    proxy_pass          http://127.0.0.1:8080;
+    rewrite             ^/webcal-proxy/(.*)$ /$1 break;
     proxy_set_header    Host    $host;
     proxy_set_header    X-Forwarded-URI /webcal-proxy;
     proxy_redirect      off;
