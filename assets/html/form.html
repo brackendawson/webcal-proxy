@@ -43,9 +43,7 @@
     <input id="user-tz" name="user-tz" type="hidden">
     <input id="ical-cache" name="ical-cache" type="hidden">
     <input id="trigger-submit" type="hidden">
-    <div id="loading" class="input-group">
-        <span id="loading-label" class="input-group-text notification">Loading...</span>
-    </div>
+    <div id="loading" class="alert alert-primary" role="alert">Loading...</div>      
     {{ template "_placeholder-url" . }}
     {{ with .Error }}
         {{ template "_error" . }}
@@ -58,13 +56,11 @@
 
 
 {{ define "_placeholder-error" }}
-<div id="error" class="input-group no-error" data-hx-swap-oob="true"></div> <!-- TODO use a bootstrap notification? -->
+<div id="error" class="alert alert-danger no-error" data-hx-swap-oob="true"></div>   
 {{ end }}
 
 {{ define "_error" }}
-<div id="error" class="input-group error" data-hx-swap-oob="true">
-    <span id="error-label" class="input-group-text notification error">{{ . }}</span>
-</div>
+<div id="error" class="alert alert-danger error" data-hx-swap-oob="true">{{ . }}</div>   
 {{ end }}
 
 {{ define "_placeholder-url" }}

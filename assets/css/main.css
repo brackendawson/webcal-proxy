@@ -131,16 +131,6 @@ footer {
     margin-block: 1rem;
 }
 
-.notification {
-    width: 100%;
-    white-space: normal;
-    text-align: left;
-}
-
-#error-label {
-    background: var(--light-red);
-}
-
 .no-error {
     display: none
 }
@@ -155,12 +145,6 @@ footer {
 
 #loading {
     display: none;
-}
-
-#loading-label {
-    display: inline-block;
-    text-align: center;
-    background: var(--light-blue);
 }
 
 .htmx-request #loading {
@@ -239,4 +223,9 @@ footer {
 
 #date-pick-next-year:after {
     content: '+';
+}
+
+.alert {
+    margin-block: 1rem;
+    padding-block: 0.38rem;
 }
