@@ -2,9 +2,7 @@ package server
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"mime"
 	"net/http"
 	"net/url"
 	"slices"
@@ -100,16 +98,6 @@ func (s *Server) fetch(url string) (*ics.Calendar, error) {
 	defer upstream.Body.Close()
 	if upstream.StatusCode < 200 || upstream.StatusCode >= 300 {
 		return nil, fmt.Errorf("bad status: %s", upstream.Status)
-	}
-	contentType := upstream.Header.Get("Content-Type")
-	if contentType != "" {
-		mediaType, _, err := mime.ParseMediaType(contentType)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing content type: %w", err)
-		}
-		if mediaType != "text/calendar" {
-			return nil, errors.New("not a calendar")
-		}
 	}
 
 	return ics.ParseCalendar(upstream.Body)

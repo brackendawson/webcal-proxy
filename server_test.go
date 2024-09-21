@@ -105,16 +105,17 @@ func TestServer(t *testing.T) {
 			expectedStatus:   http.StatusOK,
 			expectedCalendar: fixtures.CalExample,
 		},
-		"not_calendar": {
+		"text_plain_calendar": {
+			// like webcal://better-f1-calendar.vercel.app/api/calendar.ics ಠ_ಠ
 			inputMethod: http.MethodGet,
 			inputQuery:  "?cal=http://CALURL",
 			serverOpts: []server.Opt{
 				server.WithUnsafeClient(&http.Client{}),
 				server.MaxConns(1),
 			},
-			upstreamServer: mockWebcalServer(http.StatusOK, map[string]string{"Content-Type": "text/html"}, fixtures.CalExample),
-			expectedStatus: http.StatusBadGateway,
-			expectedBody:   ptrTo([]byte("Failed to fetch calendar")),
+			upstreamServer:   mockWebcalServer(http.StatusOK, map[string]string{"Content-Type": "text/plain"}, fixtures.CalExample),
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: fixtures.CalExample,
 		},
 		"not_working": {
 			inputMethod: http.MethodGet,
