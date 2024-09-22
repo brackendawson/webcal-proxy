@@ -147,8 +147,9 @@ footer p {
     color: white;
 }
 
-.day-spill * {
-    opacity: 50%;
+.day-spill .day-event,
+.day-spill .day-head {
+    opacity: 25%;
 }
 
 .input-group {
