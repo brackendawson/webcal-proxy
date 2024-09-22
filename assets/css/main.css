@@ -51,6 +51,10 @@ footer {
     background-image: linear-gradient(var(--dark-bg), var(--light-bg) 100%);
 }
 
+footer p {
+    padding-inline: 1rem;
+}
+
 #calendar {
     display: flex;
     flex-wrap: wrap;
