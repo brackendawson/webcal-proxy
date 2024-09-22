@@ -55,7 +55,6 @@
 </form>
 {{ end }}
 
-
 {{ define "_placeholder-error" }}
 <div id="error" class="alert alert-danger no-error" data-hx-swap-oob="true"></div>   
 {{ end }}
@@ -65,7 +64,7 @@
 {{ end }}
 
 {{ define "_placeholder-url" }}
-<div id="url" class="input-group no-url" data-hx-swap-oob="true"></div>
+<div id="url" class="alert alert-info no-url" data-hx-swap-oob="true">Enter a webcal:// URL to begin.</div>
 {{ end }}
 
 {{ define "_url" }}

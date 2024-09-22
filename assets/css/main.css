@@ -163,10 +163,6 @@ footer p {
     background: var(--light-green);
 }
 
-.no-url {
-    display: none
-}
-
 #loading {
     display: none;
 }
@@ -177,6 +173,7 @@ footer p {
 }
 
 .htmx-request .url,
+.htmx-request .no-url,
 .htmx-request .error {
     display: none;
 }
