@@ -306,6 +306,31 @@ func TestServer(t *testing.T) {
 				Days:         month11Sept2024,
 			},
 		},
+		"htmx_calendar_next_year": {
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			inputBody: []byte(url.Values{
+				"target-year":  []string{"2024"},
+				"target-month": []string{"9"},
+			}.Encode()),
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2023, 9, 11, 23, 0, 0, 0, time.UTC) }),
+			},
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Calendar{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				CalendarView: server.ViewMonth,
+				Target:       time.Date(2024, 9, 01, 0, 0, 0, 0, time.UTC),
+				Today:        time.Date(2023, 9, 11, 23, 0, 0, 0, time.UTC),
+				Days:         month11Sept2024InTheFuture,
+			},
+		},
 		"htmx_calendar_with_user_tz": {
 			inputMethod: http.MethodPost,
 			inputHeaders: map[string]string{

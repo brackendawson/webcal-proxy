@@ -34,7 +34,7 @@ func appendDay(ctx context.Context, s []Day, target, today time.Time, downstream
 		newDay := Day{
 			Number:  d.Day(),
 			Weekday: strings.ToLower(d.Weekday().String()),
-			Today:   d.Month() == today.Month() && d.Day() == today.Day(),
+			Today:   d.Day() == today.Day() && d.Month() == today.Month() && d.Year() == today.Year(),
 			Spill:   d.Month() != target.Month(),
 		}
 
