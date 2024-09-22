@@ -51,8 +51,13 @@ footer {
     background-image: linear-gradient(var(--dark-bg), var(--light-bg) 100%);
 }
 
-footer p {
-    padding-inline: 1rem;
+footer span {
+    padding-left: 1rem;
+}
+
+footer a {
+    text-decoration: inherit;
+    color: inherit;
 }
 
 #calendar {
