@@ -78,14 +78,16 @@ footer p {
 }
 
 .day {
-    height: 6.3em;
+    position: relative;
+    min-height: 6.3em;
     width: calc(100%/7);
     border: solid 0.05rem;
     border-color: var(--light-grey);
 }
 
-.day div {
-    white-space: nowrap;
+.day > a {
+    text-decoration: inherit;
+    color: inherit;
 }
 
 .day-head {
@@ -94,27 +96,45 @@ footer p {
 }
 
 .day-event {
+    white-space: nowrap;
     border-radius: 0.25em;
     background: var(--med-blue);
     padding-left: 0.25em;
     margin-bottom: 0.1em;
 }
 
-.event-summary {
-    margin-left: 0.4em;
-}
-
-:nth-child(3 of .day-event):not(:last-child) {
-    text-align: right;
-    padding-right: 0.25em;
-}
-
-:nth-child(3 of .day-event):not(:last-child) span {
+.day-event > .event-end-time,
+.day-event > .event-location,
+.day-event > .event-description {
     display: none;
 }
 
-:nth-child(3 of .day-event):not(:last-child):before {
-    content: "more..."
+.modal-body > p {
+    margin-block: 0;
+}
+
+.event-modal-start-time:before {
+    content: "Start: ";
+    color: grey;
+    font-style: italic;
+}
+
+.event-modal-end-time:before {
+    content: "End: ";
+    color: grey;
+    font-style: italic;
+}
+
+.event-modal-location:before {
+    content: "Location: "; 
+    color: grey;
+    font-style: italic;
+}
+
+.event-modal-description:before {
+    content: "Description: ";
+    color: grey;
+    font-style: italic;
 }
 
 .day-saturday .day-head,

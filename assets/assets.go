@@ -4,7 +4,6 @@ import (
 	"embed"
 	"fmt"
 	"html/template"
-	"time"
 )
 
 var (
@@ -17,11 +16,7 @@ var (
 		"errorf": func(format string, args ...any) (any, error) {
 			return nil, fmt.Errorf(format, args...)
 		},
-		"formatTime": func(format string, t time.Time) string {
-			return t.Format(format)
-		},
-		"dict":    dict,
-		"rfc3339": func() string { return time.RFC3339 },
+		"dict": dict,
 	}
 )
 
