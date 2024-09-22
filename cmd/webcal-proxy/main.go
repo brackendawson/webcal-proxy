@@ -44,7 +44,7 @@ func main() {
 	r.RedirectTrailingSlash = false // be permissie, gin is not aware of Proxy Path
 	r.RedirectFixedPath = true
 	secureConfig.SSLRedirect = false                                                                                  // TLS should be handled by reverse proxy
-	secureConfig.ContentSecurityPolicy = "default-src 'self'; script-src 'self' 'unsafe-eval'; img-src 'self' data:;" // HTMX event filters need eval
+	secureConfig.ContentSecurityPolicy = "default-src 'self'; script-src 'self' 'unsafe-eval'; img-src 'self' data:;" // TODO HTMX event filters need eval
 	r.Use(secure.New(secureConfig))
 	server.New(r, server.MaxConns(maxConns))
 
