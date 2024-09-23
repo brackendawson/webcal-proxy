@@ -1,5 +1,7 @@
+![Go workflow](https://github.com/brackendawson/webcal-proxy/actions/workflows/go.yml/badge.svg)
+
 # webcal-proxy
-A simple server to proxy and filter webcal links.
+A simple server to proxy and filter webcal links.  
 
 ## Usage
 ### Server
