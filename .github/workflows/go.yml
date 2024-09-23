@@ -11,7 +11,7 @@ on:
 
 jobs:
 
-  build:
+  stable:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -20,6 +20,17 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version: 'stable'
+
+    - name: Test
+      run: go test -race -v ./...
+  module:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
         go-version-file: 'go.mod'
 
     - name: Test
