@@ -4,7 +4,7 @@ htmx.config.includeIndicatorStyles = false;
 function argBuilder(arg, property, operator, value) {
     return function() {
         if (value.value == "") {
-            arg.name="";
+            arg.removeAttribute("name");
             arg.value="";
             return;
         }
