@@ -2,17 +2,10 @@ package server
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	ics "github.com/arran4/golang-ical"
 	"github.com/brackendawson/webcal-proxy/cache"
-)
-
-type calendarView string
-
-const (
-	ViewMonth calendarView = "month"
 )
 
 // Event is not an exhaustive view of event components
@@ -22,28 +15,24 @@ type Event struct {
 }
 
 type Day struct {
-	Number  int
-	Weekday string
-	Today   bool
-	Spill   bool
-	Events  []Event
+	time.Time
+	// Events are the events in this day, or nil if the day has no events, or if
+	// []Day was made with a nil downstream.
+	Events []Event
 }
 
 func appendDay(ctx context.Context, s []Day, target, today time.Time, downstream *ics.Calendar, days ...time.Time) []Day {
 	for _, d := range days {
-		newDay := Day{
-			Number:  d.Day(),
-			Weekday: strings.ToLower(d.Weekday().String()),
-			Today:   d.Day() == today.Day() && d.Month() == today.Month() && d.Year() == today.Year(),
-			Spill:   d.Month() != target.Month(),
+		thisDay := Day{
+			Time: time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, d.Location()),
 		}
 
 		if downstream == nil {
-			s = append(s, newDay)
+			s = append(s, thisDay)
 			continue
 		}
 
-		for _, component := range downstream.Components { // TODO events are sorted by start time, we can avoid the O(n^2)
+		for _, component := range downstream.Components {
 			event, ok := component.(*ics.VEvent)
 			if !ok {
 				continue
@@ -57,24 +46,32 @@ func appendDay(ctx context.Context, s []Day, target, today time.Time, downstream
 				log(ctx).Warnf("Invalid event start time: %s", err)
 				continue
 			}
-			// Date only (no zone) events are parsed to midnight on time.Local,
-			// don't convert this to user's time zone.
-			if newEvent.StartTime.Location() != time.Local {
-				newEvent.StartTime = newEvent.StartTime.In(target.Location())
+			// Date only events (no time) are parsed to midnight on time.Local,
+			// this must be normalised to the target time zone for inequalities
+			// to work.
+			if newEvent.StartTime.Location() == time.Local {
+				newEvent.StartTime = setLocation(newEvent.StartTime, target.Location())
 			}
+			newEvent.StartTime = newEvent.StartTime.In(target.Location())
+			if newEvent.StartTime.After(thisDay.AddDate(0, 0, 1)) ||
+				newEvent.StartTime.Equal(thisDay.AddDate(0, 0, 1)) {
+				continue
+			}
+
 			if newEvent.EndTime, err = event.GetEndAt(); err != nil {
 				log(ctx).Warnf("Invalid event end time: %s", err) // TODO contribute a defined error here
 				continue
 			}
-			if newEvent.EndTime.Location() != time.Local {
-				newEvent.EndTime = newEvent.EndTime.In(target.Location())
+			if newEvent.EndTime.Location() == time.Local {
+				newEvent.EndTime = setLocation(newEvent.EndTime, target.Location())
 			}
-
-			if newEvent.StartTime.Year() != d.Year() ||
-				newEvent.StartTime.Month() != d.Month() ||
-				newEvent.StartTime.Day() != d.Day() { // TODO multi day event, use inequalities
+			newEvent.EndTime = newEvent.EndTime.In(target.Location())
+			if !newEvent.EndTime.IsZero() &&
+				newEvent.EndTime.Before(thisDay.Time) ||
+				newEvent.EndTime.Equal(thisDay.Time) {
 				continue
 			}
+
 			if summary := event.GetProperty(ics.ComponentPropertySummary); summary != nil {
 				newEvent.Summary = summary.Value
 			}
@@ -85,30 +82,51 @@ func appendDay(ctx context.Context, s []Day, target, today time.Time, downstream
 				newEvent.Description = description.Value
 			}
 
-			newDay.Events = append(newDay.Events, newEvent)
+			thisDay.Events = append(thisDay.Events, newEvent)
 		}
 
-		s = append(s, newDay)
+		s = append(s, thisDay)
 	}
 	return s
 }
 
-type Calendar struct {
-	View
-	CalendarView  calendarView
-	Target, Today time.Time
-	Days          []Day
-	Cache         *cache.Webcal
-	URL           string
-	Error         string
+// SameDate returns true if as has the same calendar date as c, regardless of
+// location.
+func (d Day) SameDate(as time.Time) bool {
+	return d.Day() == as.Day() &&
+		d.Month() == as.Month() &&
+		d.Year() == as.Year()
 }
 
-func newCalendar(ctx context.Context, view View, calendarView calendarView, target, today time.Time, downstream *ics.Calendar) Calendar {
-	cal := Calendar{
-		View:         view,
-		Target:       target,
-		Today:        today,
-		CalendarView: calendarView,
+// setLocation changes a time.Time's location without changing the clock time.
+func setLocation(t time.Time, l *time.Location) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(),
+		t.Second(), t.Nanosecond(), l)
+}
+
+type Month struct {
+	View
+	// Target is the date the user wishes to view, it may have a day, time, or
+	// location set.
+	Target time.Time
+	// Now is the user's current time, it may have a day, time, or location set.
+	Now time.Time
+	// Days are the days in the Target Month plus the days before and after the
+	// target month to fill incomplete leading and trailing weeks.
+	Days []Day
+	// Cache is always the unfiltered upstream ICS or nil.
+	Cache *cache.Webcal
+	// URL is the new webcal:// link for the User.
+	URL string
+	// Error is the error to show to the user or empty string.
+	Error string
+}
+
+func newMonth(ctx context.Context, view View, target, today time.Time, downstream *ics.Calendar) Month {
+	cal := Month{
+		View:   view,
+		Target: target,
+		Now:    today,
 	}
 
 	float := target.AddDate(0, 0, -target.Day()+1)

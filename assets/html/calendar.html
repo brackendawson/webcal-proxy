@@ -1,13 +1,7 @@
 {{ define "calendar" }}
-{{ if eq .CalendarView "month" }}
-    {{ template "month" . }}
-{{ else }}
-    {{ errorf "invalid view for calendar: %s" .View }}
-{{ end }}
-{{ end }}
-
-{{ define "month" }}
-{{ $timeF := "Monday 2 January 2006 15:04 MST" }}
+{{ $timeFmtLong := "Monday 2 January 2006 15:04 MST" }}
+{{ $now := .Now }}
+{{ $target := .Target }}
 <div id="calendar">
     <div class="calendar-dow">Monday</div>
     <div class="calendar-dow">Tuesday</div>
@@ -17,13 +11,17 @@
     <div class="calendar-dow">Saturday</div>
     <div class="calendar-dow">Sunday</div>
     {{ range $i, $day := .Days }}
-        <div class="day day-{{ $day.Weekday }}{{ if $day.Today }} day-today{{ end }}{{ if $day.Spill }} day-spill{{ end }}">
-            <div class="day-head">{{ $day.Number }}</div>
+        <div class="day day-{{ $day.Weekday }}{{ if $day.SameDate $now }} day-today{{ end }}{{ if ne $day.Month $target.Month }} day-spill{{ end }}">
+            <div class="day-head">{{ $day.Day }}</div>
             {{ range $j, $event := $day.Events }}
                 <a href="" data-bs-toggle="modal" data-bs-target="#event-modal-{{ $i }}-{{ $j }}">
                     <div class="day-event">
-                        <span class="event-start-time">{{ $event.StartTime.Format "15:04" }}</span>
-                        {{ if $event.EndTime.After $event.StartTime }}
+                        {{ if $day.SameDate $event.StartTime }}
+                            <span class="event-start-time">{{ $event.StartTime.Format "15:04" }}</span>
+                        {{ else }}
+                            <span class="event-start-time event-start-time-continued"></span>
+                        {{ end }}
+                        {{ if not $event.EndTime.IsZero }}
                             <span class="event-end-time">{{ $event.EndTime.Format "15:04" }}</span>
                         {{ end }}
                         <span class="event-summary">{{ $event.Summary }}</summary>
@@ -40,9 +38,9 @@
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
-                                <p class="event-modal-start-time">{{ $event.StartTime.Format $timeF }}</p>
-                                {{ if $event.EndTime.After $event.StartTime }}
-                                    <p class="event-modal-end-time">{{ $event.EndTime.Format $timeF }}</p>
+                                <p class="event-modal-start-time">{{ $event.StartTime.Format $timeFmtLong }}</p>
+                                {{ if not $event.EndTime.IsZero }}
+                                    <p class="event-modal-end-time">{{ $event.EndTime.Format $timeFmtLong }}</p>
                                 {{ end }}
                                 {{ with $event.Location }}
                                     <p class="event-modal-location">{{ . }}</p>

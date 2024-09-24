@@ -164,24 +164,24 @@ func (s *Server) HandleHTMX(c *gin.Context) {
 
 	opts, err := getCalendarOptions(c, c.PostFormArray)
 	if err != nil {
-		handleHTMXError(c, newCalendar(c, newView(c), ViewMonth, target, today, nil), err)
+		handleHTMXError(c, newMonth(c, newView(c), target, today, nil), err)
 		return
 	}
 
 	if opts.url == "" {
-		c.HTML(http.StatusOK, "calendar", newCalendar(c, newView(c), ViewMonth, target, today, nil))
+		c.HTML(http.StatusOK, "calendar", newMonth(c, newView(c), target, today, nil))
 		return
 	}
 
 	upstream, upstreamFromCache, err := s.getUpstreamWithCache(c, opts.url, c.PostForm("ical-cache"))
 	if err != nil {
-		handleHTMXError(c, newCalendar(c, newView(c), ViewMonth, target, today, nil), err)
+		handleHTMXError(c, newMonth(c, newView(c), target, today, nil), err)
 		return
 	}
 
 	downstream := getDownstreamCalendar(upstream, opts)
 
-	calendar := newCalendar(c, newView(c), ViewMonth, target, today, downstream)
+	calendar := newMonth(c, newView(c), target, today, downstream)
 
 	if upstream != nil && !upstreamFromCache {
 		calendar.Cache = &cache.Webcal{
@@ -242,7 +242,7 @@ func (s *Server) HandleMatcherDelete(c *gin.Context) {
 
 type Picker struct {
 	View
-	Target, Today time.Time
+	Target, Now time.Time
 }
 
 func (s *Server) HandleDatePickerMonth(c *gin.Context) {
@@ -266,7 +266,7 @@ func (s *Server) HandleDatePickerMonth(c *gin.Context) {
 	c.HTML(http.StatusOK, "date-picker-month", Picker{
 		View:   newView(c),
 		Target: target,
-		Today:  today,
+		Now:    today,
 	})
 }
 

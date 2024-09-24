@@ -114,6 +114,10 @@ footer a {
     display: none;
 }
 
+.event-start-time-continued:after {
+    content: "...";
+}
+
 .modal-body > p {
     margin-block: 0;
 }

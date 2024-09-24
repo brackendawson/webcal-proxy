@@ -27,4 +27,8 @@ var (
 	Events11Sept2024 []byte
 	//go:embed emptyCalendar.ics
 	EmptyCalendar []byte
+	//go:embed allDayEvent.ics
+	AllDayEvent []byte
+	//go:embed multiDayEvent.ics
+	MultiDayEvent []byte
 )

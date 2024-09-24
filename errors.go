@@ -39,7 +39,7 @@ func handleWebcalErr(c *gin.Context, err error) {
 	))
 }
 
-func handleHTMXError(c *gin.Context, calendar Calendar, err error) {
+func handleHTMXError(c *gin.Context, calendar Month, err error) {
 	var msgErr errorWithMessage
 	if errors.As(err, &msgErr) {
 		calendar.Error = msgErr.message
