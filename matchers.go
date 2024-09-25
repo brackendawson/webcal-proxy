@@ -56,7 +56,11 @@ func parseMatchers(m []string) (matchGroup, error) {
 
 func (m matchGroup) matches(event *ics.VEvent) bool {
 	for _, matcher := range m {
-		if matcher.expression.Match([]byte(event.GetProperty(matcher.property).Value)) {
+		property := event.GetProperty(matcher.property)
+		if property == nil {
+			return false
+		}
+		if matcher.expression.Match([]byte(property.Value)) {
 			return true
 		}
 	}

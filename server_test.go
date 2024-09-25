@@ -144,6 +144,14 @@ func TestServer(t *testing.T) {
 			expectedStatus:   http.StatusOK,
 			expectedCalendar: fixtures.CalOnlyRotation,
 		},
+		"includeUnsetProperty": {
+			inputMethod:      http.MethodGet,
+			inputQuery:       "?cal=http://CALURL&inc=LOCATION=Rotation",
+			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: fixtures.CalExampleEmpty,
+		},
 		"excludeSecondary": {
 			inputMethod:      http.MethodGet,
 			inputQuery:       "?cal=http://CALURL&exc=SUMMARY=Secondary",
@@ -151,6 +159,14 @@ func TestServer(t *testing.T) {
 			upstreamServer:   mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
 			expectedStatus:   http.StatusOK,
 			expectedCalendar: fixtures.CalWithoutSecondary,
+		},
+		"excludeUnsetProperty": {
+			inputMethod:      http.MethodGet,
+			inputQuery:       "?cal=http://CALURL&exc=LOCATION=Secondary",
+			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: fixtures.CalExample,
 		},
 		"includeExclude": {
 			inputMethod:      http.MethodGet,

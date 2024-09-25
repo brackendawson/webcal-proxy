@@ -7,6 +7,8 @@ import (
 var (
 	//go:embed calExample.ics
 	CalExample []byte
+	//go:embed calExampleEmpty.ics
+	CalExampleEmpty []byte
 	//go:embed calOnlyRotation.ics
 	CalOnlyRotation []byte
 	//go:embed calWithoutSecondary.ics
