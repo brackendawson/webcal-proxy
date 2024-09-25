@@ -59,15 +59,15 @@
 {{ if .Cache }}
     <input id="ical-cache" name="ical-cache" data-hx-swap-oob="true" value="{{ .Cache.Encode }}" type="hidden">
 {{ end }}
+{{ $url := .URL }}
 {{ with .Error }}
     {{ template "_error" . }}
 {{ else }}
-    {{ template "_placeholder-error" . }}
-{{ end }}
-{{ with .URL }}
-    {{ template "_url" . }}
-{{ else }}
-    {{ template "_placeholder-url" . }}
+    {{ with $url }}
+        {{ template "_url" . }}
+    {{ else }}
+        {{ template "_placeholder-url" . }}
+    {{ end }}
 {{ end }}
 {{ template "date-picker-month" . }}
 {{ end }}

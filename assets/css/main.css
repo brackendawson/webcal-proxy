@@ -165,10 +165,6 @@ footer a {
     margin-block: 1rem;
 }
 
-.no-error {
-    display: none
-}
-
 #url-label {
     background: var(--light-green);
 }
@@ -182,9 +178,7 @@ footer a {
     animation: pulse 1s linear 0s infinite;
 }
 
-.htmx-request .url,
-.htmx-request .no-url,
-.htmx-request .error {
+.htmx-request #notification {
     display: none;
 }
 

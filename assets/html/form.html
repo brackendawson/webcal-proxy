@@ -40,30 +40,25 @@
     <input id="ical-cache" name="ical-cache" type="hidden">
     <input id="trigger-submit" type="hidden">
     <div id="loading" class="alert alert-primary" role="alert">Loading...</div>      
-    {{ template "_placeholder-url" . }}
     {{ with .Error }}
         {{ template "_error" . }}
     {{ else }}
-        {{ template "_placeholder-error" . }}
+        {{ template "_placeholder-url" . }}
     {{ end }}
     <div id="date-picker"></div>
 </form>
 {{ end }}
 
-{{ define "_placeholder-error" }}
-<div id="error" class="alert alert-danger no-error" data-hx-swap-oob="true"></div>   
-{{ end }}
-
 {{ define "_error" }}
-<div id="error" class="alert alert-danger error" data-hx-swap-oob="true">{{ . }}</div>   
+<div id="notification" class="alert alert-danger error" data-hx-swap-oob="true">{{ . }}</div>   
 {{ end }}
 
 {{ define "_placeholder-url" }}
-<div id="url" class="alert alert-info no-url" data-hx-swap-oob="true">Enter a webcal URL to begin.</div>
+<div id="notification" class="alert alert-info no-url" data-hx-swap-oob="true">Enter a webcal URL to begin.</div>
 {{ end }}
 
 {{ define "_url" }}
-<div id="url" class="input-group url" data-hx-swap-oob="true">
+<div id="notification" class="input-group url" data-hx-swap-oob="true">
     <span id="url-label" class="input-group-text url">Your URL</span>
     <input type="text" id="url-box" class="form-control url" value="{{ . }}" readonly>
     <button id="url-copy" class="btn btn-outline-secondary url" type="button"><i id="url-copy-icon" class="fa-regular fa-copy"></i> Copy</button>
