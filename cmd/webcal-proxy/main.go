@@ -43,8 +43,8 @@ func main() {
 	r := gin.New()
 	r.RedirectTrailingSlash = false // be permissie, gin is not aware of Proxy Path
 	r.RedirectFixedPath = true
-	secureConfig.SSLRedirect = false                                                                                  // TLS should be handled by reverse proxy
-	secureConfig.ContentSecurityPolicy = "default-src 'self'; script-src 'self' 'unsafe-eval'; img-src 'self' data:;" // TODO HTMX event filters need eval
+	secureConfig.SSLRedirect = false                                                                    // TLS should be handled by reverse proxy
+	secureConfig.ContentSecurityPolicy = "default-src 'self'; script-src 'self'; img-src 'self' data:;" // Bootstrap uses data: images
 	r.Use(secure.New(secureConfig))
 	server.New(r, server.MaxConns(maxConns))
 

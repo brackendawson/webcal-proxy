@@ -17,7 +17,7 @@ function argBuilder(arg, property, operator, value) {
 function registerArgBuilders() {
     let matchers = document.getElementsByClassName("matcher");
     for (let i = 0; i < matchers.length; i++) {
-        if (matchers[i].classList.contains("arg-builder-registered")) continue;
+        if (matchers[i].hasAttribute("data-arg-builder-registered")) continue;
         
         let arg = matchers[i].parentElement.querySelector(".matcher-arg");
         let property = matchers[i].parentElement.querySelector(".matcher-property");
@@ -25,10 +25,18 @@ function registerArgBuilders() {
         let value = matchers[i].parentElement.querySelector(".matcher-value");
         let builder = argBuilder(arg, property, operator, value);
 
-        matchers[i].addEventListener("input", builder);
+        var lastTimeout = undefined;
+        let builderAndSubmit = function() {
+            builder();
+            if (typeof lastTimeout !== undefined) clearTimeout(lastTimeout);
+            lastTimeout = setTimeout(function() {
+                document.getElementById("trigger-submit").dispatchEvent(new Event("input"))
+            }, 1000);
+        }
+        matchers[i].addEventListener("input", builderAndSubmit);
         builder();
 
-        matchers[i].classList.add("arg-builder-registered");
+        matchers[i].setAttribute("data-arg-builder-registered", "");
 
     }
 }
@@ -36,7 +44,7 @@ function registerArgBuilders() {
 function registerCopyButton() {
     let button = document.getElementById("url-copy");
     if (button == null) return;
-    if (button.classList.contains("url-copy-registered")) return;
+    if (button.hasAttribute("data-url-copy-registered")) return;
     button.addEventListener("click", function() {
         copyText = document.getElementById("url-box");
 
@@ -45,7 +53,30 @@ function registerCopyButton() {
 
         navigator.clipboard.writeText(copyText.value); // This wont work in plain HTTP
     })
-    button.classList.add("url-copy-registered");
+    button.setAttribute("data-url-copy-registered", "");
+}
+
+function registerSubmitById(id, timeout) {
+    registerSubmit(document.getElementById(id, timeout))
+}
+
+function registerSubmitsByClassName(className, timeout) {
+    let elems = document.getElementsByClassName(className);
+    for (var i = 0; i < elems.length; i++) {
+        registerSubmit(elems[i], timeout);
+    }
+}
+
+function registerSubmit(elem, timeout) {
+    if (elem.hasAttribute("data-submit-registered")) return;
+    var lastTimeout = undefined;
+    elem.addEventListener("input", function() {
+        if (typeof lastTimeout !== undefined) clearTimeout(lastTimeout);
+        lastTimeout = setTimeout(function() {
+            document.getElementById("trigger-submit").dispatchEvent(new Event("input"));
+        }, timeout);
+    });
+    elem.setAttribute("data-submit-registered", "");
 }
 
 window.onload = function() {
@@ -59,6 +90,8 @@ window.onload = function() {
     document.body.addEventListener("htmx:afterSettle", function() {
         registerCopyButton();
         registerArgBuilders();
+        registerSubmitById("date-pick-year", 1000);
+        registerSubmitById("date-pick-month", 0);
     });
 
     registerArgBuilders();

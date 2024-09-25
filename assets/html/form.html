@@ -10,12 +10,7 @@
         {{ end }}
         input from:#trigger-submit,
         input delay:1s from:#input-url,
-        change from:#input-mrg,
-        change[event.target.matches('.matcher-property')] delay:1s,
-        change[event.target.matches('.matcher-operator')] delay:1s,
-        input[event.target.matches('.matcher-value')] delay:1s,
-        input[event.target.matches('#date-pick-month')],
-        input[event.target.matches('#date-pick-year')] delay:1s"
+        change from:#input-mrg"
         >
     <div class="input-group">
         <input id="input-url"
