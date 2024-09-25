@@ -57,17 +57,7 @@ function registerCopyButton() {
 }
 
 function registerSubmitById(id, timeout) {
-    registerSubmit(document.getElementById(id, timeout))
-}
-
-function registerSubmitsByClassName(className, timeout) {
-    let elems = document.getElementsByClassName(className);
-    for (var i = 0; i < elems.length; i++) {
-        registerSubmit(elems[i], timeout);
-    }
-}
-
-function registerSubmit(elem, timeout) {
+    elem = document.getElementById(id, timeout);
     if (elem.hasAttribute("data-submit-registered")) return;
     var lastTimeout = undefined;
     elem.addEventListener("input", function() {
