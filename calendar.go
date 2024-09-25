@@ -21,7 +21,7 @@ type Day struct {
 	Events []Event
 }
 
-func appendDay(ctx context.Context, s []Day, target, today time.Time, downstream *ics.Calendar, days ...time.Time) []Day {
+func appendDay(ctx context.Context, s []Day, target time.Time, downstream *ics.Calendar, days ...time.Time) []Day {
 	for _, d := range days {
 		thisDay := Day{
 			Time: time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, d.Location()),
@@ -32,12 +32,7 @@ func appendDay(ctx context.Context, s []Day, target, today time.Time, downstream
 			continue
 		}
 
-		for _, component := range downstream.Components {
-			event, ok := component.(*ics.VEvent)
-			if !ok {
-				continue
-			}
-
+		for _, event := range downstream.Events() {
 			var (
 				newEvent Event
 				err      error
@@ -134,11 +129,11 @@ func newMonth(ctx context.Context, view View, target, today time.Time, downstrea
 	float = float.AddDate(0, 0, -mondayIndexWeekday(float.Weekday()))
 
 	for float.Before(endOfMonth) {
-		cal.Days = appendDay(ctx, cal.Days, target, today, downstream, float)
+		cal.Days = appendDay(ctx, cal.Days, target, downstream, float)
 		float = float.AddDate(0, 0, 1)
 	}
 	for float.Weekday() != time.Monday {
-		cal.Days = appendDay(ctx, cal.Days, target, today, downstream, float)
+		cal.Days = appendDay(ctx, cal.Days, target, downstream, float)
 		float = float.AddDate(0, 0, 1)
 	}
 
