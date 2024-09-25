@@ -32,9 +32,12 @@ func logging(c *gin.Context) {
 	start := time.Now()
 
 	log := logrus.WithFields(logrus.Fields{
-		"req_method": c.Request.Method,
-		"req_url":    c.Request.URL.String(),
-		"req_bytes":  c.GetHeader("Content-Length"),
+		"req_method":             c.Request.Method,
+		"req_url":                c.Request.URL.String(),
+		"req_bytes":              c.GetHeader("Content-Length"),
+		"downstream_remote_addr": c.Request.RemoteAddr,
+		"x_forwarded_for":        c.GetHeader("X-Forwarded-For"),
+		"user_agent":             c.GetHeader("User-Agent"),
 	})
 
 	requestID := c.GetHeader("X-Request-ID")
