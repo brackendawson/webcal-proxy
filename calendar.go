@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	ics "github.com/arran4/golang-ical"
@@ -54,6 +55,10 @@ func appendDay(ctx context.Context, s []Day, target time.Time, downstream *ics.C
 			}
 
 			if newEvent.EndTime, err = event.GetEndAt(); err != nil {
+				if errors.Is(err, ics.ErrorPropertyNotFound) {
+					log(ctx).Debugf("No event end time: %s", err) // TODO contribute a defined error here
+					continue
+				}
 				log(ctx).Warnf("Invalid event end time: %s", err) // TODO contribute a defined error here
 				continue
 			}

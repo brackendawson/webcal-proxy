@@ -5,7 +5,7 @@ go 1.23
 toolchain go1.23.0
 
 require (
-	github.com/arran4/golang-ical v0.3.1
+	github.com/arran4/golang-ical v0.3.2-0.20240926133513-229e6a3f293f
 	github.com/gin-contrib/secure v1.1.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/hashicorp/go-uuid v1.0.3
