@@ -21,8 +21,8 @@ var (
 	CalEventWithNoStart []byte
 	//go:embed calEventWithNoStartSorted.ics
 	CalEventWithNoStartSorted []byte
-	//go:embed calUnMerged.ics
-	CalUnMerged []byte
+	//go:embed calUnmerged.ics
+	CalUnmerged []byte
 	//go:embed calMerged.ics
 	CalMerged []byte
 	//go:embed events11Sept2024.ics
