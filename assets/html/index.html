@@ -1,0 +1,30 @@
+{{ define "index" }}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Webcal Proxy</title>
+        <meta name="viewport" content="width=device-width, initial-scale=0.8">
+        <link rel="icon" type="image/x-icon" href="{{ .ProxyPath }}/assets/img/favicon.ico">
+        <link rel="stylesheet" href="{{ .ProxyPath }}/assets/css/bootstrap.min.css">
+        <link rel="stylesheet" href="{{ .ProxyPath }}/assets/css/fontawesome.min.css">
+        <link rel="stylesheet" href="{{ .ProxyPath }}/assets/css/main.css">
+        <script src="{{ .ProxyPath }}/assets/js/htmx.min.js"></script>
+        <script src="{{ .ProxyPath }}/assets/js/bootstrap.min.js"></script>
+        <script src="{{ .ProxyPath }}/assets/js/main.js"></script>
+    </head>
+    <body>
+        <header>
+            <h1>Webcal Proxy</h1>
+            <p>Filter and merge events from webcal:// feeds</p>
+        </header>
+        <main>
+            {{ template "_form" . }}
+            <div id="calendar"></div>
+        </main>
+        <footer>
+            <span>©2024 Bracken Dawson</span>
+            <span><a href="https://github.com/brackendawson/webcal-proxy"><i class="fa-brands fa-square-github"></i> Fork me on GitHub</a></span>
+        </footer>
+    </body>
+</html>
+{{ end }}

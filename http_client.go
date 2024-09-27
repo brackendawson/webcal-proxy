@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -14,22 +13,9 @@ const (
 )
 
 var (
-	dialer = &net.Dialer{}
-	client = &http.Client{
-		Timeout: requestTimeoutSecs * time.Second,
-		Transport: &http.Transport{
-			DialContext: publicUnicastOnlyDialContext,
-		},
-		CheckRedirect: noRedirect,
-	}
+	dialer   = &net.Dialer{}
 	resolver = &net.Resolver{}
-
-	allowLoopback = false
 )
-
-func noRedirect(*http.Request, []*http.Request) error {
-	return errors.New("redirect is not allowed")
-}
 
 func publicUnicastOnlyDialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	host, port, err := net.SplitHostPort(addr)
@@ -54,7 +40,6 @@ func publicUnicastOnlyDialContext(ctx context.Context, network, addr string) (ne
 	for _, ipAddr := range ipAddrs {
 		ip = net.ParseIP(ipAddr)
 		switch {
-		case allowLoopback && ip.IsLoopback():
 		case !ip.IsGlobalUnicast() || ip.IsPrivate():
 			dialErrs = append(dialErrs, fmt.Errorf("forbidden address: %s", ipAddr))
 			continue
@@ -70,4 +55,14 @@ func publicUnicastOnlyDialContext(ctx context.Context, network, addr string) (ne
 	}
 
 	return nil, fmt.Errorf("failed to dial: %q", dialErrs)
+}
+
+type WithUserAgent struct {
+	http.RoundTripper
+	UserAgent string
+}
+
+func (w *WithUserAgent) RoundTrip(r *http.Request) (*http.Response, error) {
+	r.Header.Set("User-Agent", w.UserAgent)
+	return w.RoundTripper.RoundTrip(r)
 }

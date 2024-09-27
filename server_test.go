@@ -1,4 +1,4 @@
-package server
+package server_test
 
 import (
 	"bytes"
@@ -7,165 +7,1024 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	ics "github.com/arran4/golang-ical"
+	server "github.com/brackendawson/webcal-proxy"
+	"github.com/brackendawson/webcal-proxy/assets"
+	"github.com/brackendawson/webcal-proxy/cache"
+	"github.com/brackendawson/webcal-proxy/fixtures"
+	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/render"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-func TestRegexFilter(t *testing.T) {
+func TestServer(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	logrus.SetLevel(logrus.DebugLevel)
+
 	for name, test := range map[string]struct {
-		source        []byte
-		tryRedirect   bool
-		options       string
-		allowLoopback bool
-		wantSourceURL string
-		want          []byte
-		wantStatus    int
+		// input request
+		inputMethod  string
+		inputQuery   string
+		inputHeaders map[string]string
+		inputBody    []byte
+		inputCache   *cache.Webcal
+
+		// server settings
+		serverOpts []server.Opt
+
+		// upstream server double
+		upstreamServer http.HandlerFunc
+
+		// assertions
+		expectedStatus       int
+		expectedCalendar     []byte
+		expectedBody         *[]byte
+		expectedTemplateName string
+		expectedTemplateObj  any
+		expectedHeaders      map[string]string
 	}{
 		"default": {
-			source:        calExample,
-			options:       "?cal=http://CALURL",
-			allowLoopback: true,
-			wantStatus:    200,
-			want:          calExample,
+			inputMethod: http.MethodGet,
+			inputQuery:  "?cal=http://CALURL",
+			serverOpts: []server.Opt{
+				server.WithUnsafeClient(&http.Client{}),
+				server.MaxConns(1),
+			},
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: fixtures.CalExample,
+		},
+		"input_inc_validated_before_upstream_request": {
+			inputMethod: http.MethodGet,
+			inputQuery:  "?cal=http://CALURL&inc=hjklkhkjh",
+			serverOpts: []server.Opt{
+				server.WithUnsafeClient(&http.Client{}),
+				server.MaxConns(1),
+			},
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   ptrTo([]byte(`Bad inc argument: invalid match parameter "hjklkhkjh" at index 0, should be <FIELD>=<regexp>`)),
+		},
+		"userAgent": {
+			inputMethod: http.MethodGet,
+			inputQuery:  "?cal=http://CALURL",
+			serverOpts: []server.Opt{
+				server.WithUnsafeClient(&http.Client{
+					Transport: &server.WithUserAgent{RoundTripper: &http.Transport{}, UserAgent: "blah/1"},
+				}),
+			},
+			upstreamServer: func(w http.ResponseWriter, r *http.Request) {
+				require.Equal(t, "blah/1", r.Header.Get("User-Agent"))
+			},
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: fixtures.EmptyCalendar,
+		},
+		"utf8": {
+			inputMethod: http.MethodGet,
+			inputQuery:  "?cal=http://CALURL",
+			serverOpts: []server.Opt{
+				server.WithUnsafeClient(&http.Client{}),
+				server.MaxConns(1),
+			},
+			upstreamServer:   mockWebcalServer(http.StatusOK, map[string]string{"Content-Type": "text/calendar; charset=utf-8"}, fixtures.CalExample),
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: fixtures.CalExample,
+		},
+		"no_content_type": {
+			inputMethod: http.MethodGet,
+			inputQuery:  "?cal=http://CALURL",
+			serverOpts: []server.Opt{
+				server.WithUnsafeClient(&http.Client{}),
+				server.MaxConns(1),
+			},
+			upstreamServer:   mockWebcalServer(http.StatusOK, map[string]string{"Content-Type": ""}, fixtures.CalExample),
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: fixtures.CalExample,
+		},
+		"text_plain_calendar": {
+			// like webcal://better-f1-calendar.vercel.app/api/calendar.ics ಠ_ಠ
+			inputMethod: http.MethodGet,
+			inputQuery:  "?cal=http://CALURL",
+			serverOpts: []server.Opt{
+				server.WithUnsafeClient(&http.Client{}),
+				server.MaxConns(1),
+			},
+			upstreamServer:   mockWebcalServer(http.StatusOK, map[string]string{"Content-Type": "text/plain"}, fixtures.CalExample),
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: fixtures.CalExample,
+		},
+		"not_working": {
+			inputMethod: http.MethodGet,
+			inputQuery:  "?cal=http://CALURL",
+			serverOpts: []server.Opt{
+				server.WithUnsafeClient(&http.Client{}),
+				server.MaxConns(1),
+			},
+			upstreamServer: mockWebcalServer(http.StatusInternalServerError, nil, fixtures.CalExample),
+			expectedStatus: http.StatusBadGateway,
+			expectedBody:   ptrTo([]byte("Failed to fetch calendar")),
 		},
 		"no-cal": {
-			source:        calExample,
-			options:       "?not=right",
-			allowLoopback: true,
-			wantStatus:    400,
+			inputMethod:    http.MethodGet,
+			inputQuery:     "?not=right",
+			serverOpts:     []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   ptrTo([]byte(`Missing "cal" parameter, must be a webcal URL.`)),
 		},
 		"includeRotation": {
-			source:        calExample,
-			options:       "?cal=http://CALURL&inc=SUMMARY=Rotation",
-			allowLoopback: true,
-			wantStatus:    200,
-			want:          calOnlyRotation,
+			inputMethod:      http.MethodGet,
+			inputQuery:       "?cal=http://CALURL&inc=SUMMARY=Rotation",
+			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: fixtures.CalOnlyRotation,
+		},
+		"includeUnsetProperty": {
+			inputMethod:      http.MethodGet,
+			inputQuery:       "?cal=http://CALURL&inc=LOCATION=Rotation",
+			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: fixtures.CalExampleEmpty,
 		},
 		"excludeSecondary": {
-			source:        calExample,
-			options:       "?cal=http://CALURL&exc=SUMMARY=Secondary",
-			allowLoopback: true,
-			wantStatus:    200,
-			want:          calWithoutSecondary,
+			inputMethod:      http.MethodGet,
+			inputQuery:       "?cal=http://CALURL&exc=SUMMARY=Secondary",
+			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: fixtures.CalWithoutSecondary,
+		},
+		"excludeUnsetProperty": {
+			inputMethod:      http.MethodGet,
+			inputQuery:       "?cal=http://CALURL&exc=LOCATION=Secondary",
+			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: fixtures.CalExample,
 		},
 		"includeExclude": {
-			source:        calExample,
-			options:       `?cal=http://CALURL&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			allowLoopback: true,
-			wantStatus:    200,
-			want:          calMay22NotRotation,
+			inputMethod:      http.MethodGet,
+			inputQuery:       `?cal=http://CALURL&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
+			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: fixtures.CalMay22NotRotation,
 		},
 		"local": {
-			source:     calExample,
-			options:    `?cal=http://127.0.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			wantStatus: 502,
+			inputMethod:    http.MethodGet,
+			inputQuery:     `?cal=http://127.0.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
+			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
+			expectedStatus: http.StatusBadGateway,
+			expectedBody:   ptrTo([]byte("Failed to fetch calendar")),
 		},
 		"private": {
-			source:     calExample,
-			options:    `?cal=http://192.168.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			wantStatus: 502,
+			inputMethod:    http.MethodGet,
+			inputQuery:     `?cal=http://192.168.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
+			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
+			expectedStatus: http.StatusBadGateway,
+			expectedBody:   ptrTo([]byte("Failed to fetch calendar")),
 		},
 		"vpn": {
-			source:     calExample,
-			options:    `?cal=http://10.0.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			wantStatus: 502,
+			inputMethod:    http.MethodGet,
+			inputQuery:     `?cal=http://10.0.0.1:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
+			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
+			expectedStatus: http.StatusBadGateway,
+			expectedBody:   ptrTo([]byte("Failed to fetch calendar")),
 		},
 		"localhost": {
-			source:     calExample,
-			options:    `?cal=http://localhost:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			wantStatus: 502,
+			inputMethod:    http.MethodGet,
+			inputQuery:     `?cal=http://localhost:80&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
+			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
+			expectedStatus: http.StatusBadGateway,
+			expectedBody:   ptrTo([]byte("Failed to fetch calendar")),
 		},
 		"no-port-localhost": {
-			source:     calExample,
-			options:    `?cal=http://localhost&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
-			wantStatus: 502,
+			inputMethod:    http.MethodGet,
+			inputQuery:     `?cal=http://localhost&inc=DTSTART=202205\d\dT&exc=SUMMARY=Rotation`,
+			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
+			expectedStatus: http.StatusBadGateway,
+			expectedBody:   ptrTo([]byte("Failed to fetch calendar")),
 		},
 		"webcal": {
-			source:        calExample,
-			options:       `?cal=webcal://CALURL`,
-			allowLoopback: true,
-			wantStatus:    200,
-			want:          calExample,
+			inputMethod:      http.MethodGet,
+			inputQuery:       `?cal=webcal://CALURL`,
+			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: fixtures.CalExample,
 		},
 		"ftp": {
-			source:        calExample,
-			options:       `?cal=ftp://CALURL`,
-			allowLoopback: true,
-			wantStatus:    400,
-		},
-		"redirect": {
-			tryRedirect:   true,
-			options:       `?cal=webcal://CALURL`,
-			allowLoopback: true,
-			wantStatus:    502,
+			inputMethod:    http.MethodGet,
+			inputQuery:     `?cal=ftp://CALURL`,
+			serverOpts:     []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamServer: mockWebcalServer(http.StatusOK, nil, fixtures.CalExample),
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   ptrTo([]byte("Unsupported protocol scheme, url should be webcal, https, or http.")),
 		},
 		"unresolvable": {
-			options:    "?cal=webcal://not.a.domain",
-			wantStatus: 502,
+			inputMethod:    http.MethodGet,
+			inputQuery:     "?cal=webcal://not.a.domain",
+			expectedStatus: http.StatusBadGateway,
+			expectedBody:   ptrTo([]byte("Failed to fetch calendar")),
 		},
-		"sortsevents": {
-			source:        calShuffled,
-			options:       "?cal=http://CALURL",
-			allowLoopback: true,
-			wantStatus:    200,
-			want:          calExample,
+		"sorts_events": {
+			inputMethod:      http.MethodGet,
+			inputQuery:       "?cal=http://CALURL",
+			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, fixtures.CalShuffled),
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: fixtures.CalExample,
 		},
-		"eventwithnostart": {
-			source:        calEventWithNoStart,
-			options:       "?cal=http://CALURL",
-			allowLoopback: true,
-			wantStatus:    400,
+		"event_with_no_start": {
+			inputMethod:      http.MethodGet,
+			inputQuery:       "?cal=http://CALURL",
+			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, fixtures.CalEventWithNoStart),
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: fixtures.CalEventWithNoStartSorted,
 		},
-		"dontmerge": {
-			source:        calUnmerged,
-			options:       "?cal=http://CALURL",
-			allowLoopback: true,
-			wantStatus:    200,
-			want:          calUnmerged,
+		"do_not_merge": {
+			inputMethod:      http.MethodGet,
+			inputQuery:       "?cal=http://CALURL",
+			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, fixtures.CalUnmerged),
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: fixtures.CalUnmerged,
 		},
 		"merge": {
-			source:        calUnmerged,
-			options:       "?cal=http://CALURL&mrg=true",
-			allowLoopback: true,
-			wantStatus:    200,
-			want:          calMerged,
+			inputMethod:      http.MethodGet,
+			inputQuery:       "?cal=http://CALURL&mrg=true",
+			serverOpts:       []server.Opt{server.WithUnsafeClient(&http.Client{})},
+			upstreamServer:   mockWebcalServer(http.StatusOK, nil, fixtures.CalUnmerged),
+			expectedStatus:   http.StatusOK,
+			expectedCalendar: fixtures.CalMerged,
+		},
+		"htmx_asset": {
+			inputMethod:    http.MethodGet,
+			inputQuery:     "assets/js/htmx.min.js",
+			expectedStatus: http.StatusOK,
+			expectedBody: func() *[]byte {
+				b, err := assets.Assets.ReadFile("js/htmx.min.js")
+				require.NoError(t, err)
+				return &b
+			}(),
+		},
+		"html_index": {
+			inputMethod:          http.MethodGet,
+			inputHeaders:         map[string]string{"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8"},
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "index",
+			expectedTemplateObj: server.Index{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+			},
+		},
+		"html_index_behind_reverse_proxy": {
+			inputMethod: http.MethodGet,
+			inputHeaders: map[string]string{
+				"Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8",
+				"X-Forwarded-URI": "/webcal-proxy",
+			},
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "index",
+			expectedTemplateObj: server.Index{
+				View: server.View{
+					ArgHost:      "example.com",
+					ArgProxyPath: "/webcal-proxy",
+				},
+			},
+		},
+		"htmx_calendar": {
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
+			},
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Month{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Target: time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Now:    time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Days:   daysSeptember2024In(time.UTC),
+			},
+		},
+		"htmx_calendar_next_year": {
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			inputBody: []byte(url.Values{
+				"target-year":  []string{"2024"},
+				"target-month": []string{"9"},
+			}.Encode()),
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2023, 9, 11, 23, 0, 0, 0, time.UTC) }),
+			},
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Month{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Target: time.Date(2024, 9, 01, 0, 0, 0, 0, time.UTC),
+				Now:    time.Date(2023, 9, 11, 23, 0, 0, 0, time.UTC),
+				Days:   daysSeptember2024In(time.UTC),
+			},
+		},
+		"htmx_calendar_with_user_tz": {
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			inputBody: []byte(url.Values{
+				"user-tz": []string{"America/New_York"},
+			}.Encode()),
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2024, 9, 12, 1, 0, 0, 0, time.UTC) }),
+			},
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Month{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Target: time.Date(2024, 9, 11, 21, 0, 0, 0, locNewYork),
+				Now:    time.Date(2024, 9, 11, 21, 0, 0, 0, locNewYork),
+				Days:   daysSeptember2024In(locNewYork),
+			},
+		},
+		"htmx_calendar_with_target_time": {
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			inputBody: []byte(url.Values{
+				"user-tz":      []string{"America/New_York"},
+				"target-month": []string{"9"},
+				"target-year":  []string{"2024"},
+			}.Encode()),
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2023, 12, 12, 1, 0, 0, 0, time.UTC) }),
+			},
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Month{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Target: time.Date(2024, 9, 1, 0, 0, 0, 0, locNewYork),
+				Now:    time.Date(2023, 12, 11, 20, 0, 0, 0, locNewYork),
+				Days:   daysSeptember2024In(locNewYork),
+			},
+		},
+		"htmx_calendar_with_events": {
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			inputBody: []byte(url.Values{
+				"cal": []string{"webcal://CALURL"},
+			}.Encode()),
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
+				server.WithUnsafeClient(&http.Client{}),
+			},
+			upstreamServer:       mockWebcalServer(http.StatusOK, nil, fixtures.Events11Sept2024),
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Month{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Target: time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Now:    time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Days:   daysSept2024WithEvents,
+				Cache: &cache.Webcal{
+					URL: "webcal://CALURL",
+					Calendar: func() *ics.Calendar {
+						c, err := ics.ParseCalendar(bytes.NewReader(fixtures.Events11Sept2024))
+						require.NoError(t, err)
+						return c
+					}(),
+				},
+				URL: "webcal://example.com/?cal=webcal%3A%2F%2FCALURL",
+			},
+		},
+		"htmx_calendar_with_all_day_event": {
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			inputBody: []byte(url.Values{
+				"cal": []string{"webcal://CALURL"},
+			}.Encode()),
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
+				server.WithUnsafeClient(&http.Client{}),
+			},
+			upstreamServer:       mockWebcalServer(http.StatusOK, nil, fixtures.AllDayEvent),
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Month{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Target: time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Now:    time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Days:   daysSept2024WithAllDayEvent,
+				Cache: &cache.Webcal{
+					URL: "webcal://CALURL",
+					Calendar: func() *ics.Calendar {
+						c, err := ics.ParseCalendar(bytes.NewReader(fixtures.AllDayEvent))
+						require.NoError(t, err)
+						return c
+					}(),
+				},
+				URL: "webcal://example.com/?cal=webcal%3A%2F%2FCALURL",
+			},
+		},
+		"htmx_calendar_with_multi_day_event": {
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			inputBody: []byte(url.Values{
+				"cal": []string{"webcal://CALURL"},
+			}.Encode()),
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
+				server.WithUnsafeClient(&http.Client{}),
+			},
+			upstreamServer:       mockWebcalServer(http.StatusOK, nil, fixtures.MultiDayEvent),
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Month{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Target: time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Now:    time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Days:   daysSept2024WithMultiDayEvent,
+				Cache: &cache.Webcal{
+					URL: "webcal://CALURL",
+					Calendar: func() *ics.Calendar {
+						c, err := ics.ParseCalendar(bytes.NewReader(fixtures.MultiDayEvent))
+						require.NoError(t, err)
+						return c
+					}(),
+				},
+				URL: "webcal://example.com/?cal=webcal%3A%2F%2FCALURL",
+			},
+		},
+		"htmx_calendar_with_events_behind_reverse_proxy": {
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"X-HX-Host":       "example.com",
+				"Content-Type":    "application/x-www-form-urlencoded",
+				"X-Forwarded-URI": "/webcal-proxy",
+			},
+			inputBody: []byte(url.Values{
+				"cal": []string{"webcal://CALURL"},
+			}.Encode()),
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
+				server.WithUnsafeClient(&http.Client{}),
+			},
+			upstreamServer:       mockWebcalServer(http.StatusOK, nil, fixtures.Events11Sept2024),
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Month{
+				View: server.View{
+					ArgHost:      "example.com",
+					ArgProxyPath: "/webcal-proxy",
+				},
+				Target: time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Now:    time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Days:   daysSept2024WithEvents,
+				Cache: &cache.Webcal{
+					URL: "webcal://CALURL",
+					Calendar: func() *ics.Calendar {
+						c, err := ics.ParseCalendar(bytes.NewReader(fixtures.Events11Sept2024))
+						require.NoError(t, err)
+						return c
+					}(),
+				},
+				URL: "webcal://example.com/webcal-proxy/?cal=webcal%3A%2F%2FCALURL",
+			},
+		},
+		"htmx_calendar_with_events_and_local_time": {
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			inputBody: []byte(url.Values{
+				"cal":     []string{"webcal://CALURL"},
+				"user-tz": []string{"Australia/Sydney"},
+			}.Encode()),
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
+				server.WithUnsafeClient(&http.Client{}),
+			},
+			upstreamServer:       mockWebcalServer(http.StatusOK, nil, fixtures.Events11Sept2024),
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Month{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Target: time.Date(2024, 9, 12, 9, 0, 0, 0, locSydney),
+				Now:    time.Date(2024, 9, 12, 9, 0, 0, 0, locSydney),
+				Days:   daysSept2024WithEventsSydney,
+				Cache: &cache.Webcal{
+					URL: "webcal://CALURL",
+					Calendar: func() *ics.Calendar {
+						c, err := ics.ParseCalendar(bytes.NewReader(fixtures.Events11Sept2024))
+						require.NoError(t, err)
+						return c
+					}(),
+				},
+				URL: "webcal://example.com/?cal=webcal%3A%2F%2FCALURL",
+			},
+		},
+		"input_exc_validation_before_upstream_request": {
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			inputBody: []byte(url.Values{
+				"cal": []string{"webcal://CALURL"},
+				"exc": []string{"falafel"},
+			}.Encode()),
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
+				server.WithUnsafeClient(&http.Client{}),
+			},
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Month{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Target: time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Now:    time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Days:   daysSeptember2024In(time.UTC),
+				Error:  "Bad exc argument: invalid match parameter \"falafel\" at index 0, should be <FIELD>=<regexp>",
+			},
+		},
+		"bad_url": {
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			inputBody: []byte(url.Values{
+				"cal": []string{"webcal://\\\\CALURL"},
+			}.Encode()),
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
+				server.WithUnsafeClient(&http.Client{}),
+			},
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Month{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Target: time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Now:    time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Days:   daysSeptember2024In(time.UTC),
+				Error:  "Bad url. Include a protocol, host, and path, eg: webcal://example.com/events",
+			},
+		},
+		"bad_url_percent": {
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			inputBody: []byte(url.Values{
+				"cal": []string{"%"},
+			}.Encode()),
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
+				server.WithUnsafeClient(&http.Client{}),
+			},
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Month{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Target: time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Now:    time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Days:   daysSeptember2024In(time.UTC),
+				Error:  "Bad url. Include a protocol, host, and path, eg: webcal://example.com/events",
+			},
+		},
+		"htmx_calendar_with_events_and_invalid_cache": {
+			// if a bad cache was passed, fetch the upstream and set a cache
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			inputBody: []byte(url.Values{
+				"cal":        []string{"webcal://CALURL"},
+				"ical-cache": []string{"I'm no cache"},
+			}.Encode()),
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
+				server.WithUnsafeClient(&http.Client{}),
+			},
+			upstreamServer:       mockWebcalServer(http.StatusOK, nil, fixtures.Events11Sept2024),
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Month{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Target: time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Now:    time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Days:   daysSept2024WithEvents,
+				Cache: &cache.Webcal{
+					URL: "webcal://CALURL",
+					Calendar: func() *ics.Calendar {
+						c, err := ics.ParseCalendar(bytes.NewReader(fixtures.Events11Sept2024))
+						require.NoError(t, err)
+						return c
+					}(),
+				},
+				URL: "webcal://example.com/?cal=webcal%3A%2F%2FCALURL",
+			},
+		},
+		"htmx_calendar_with_events_and_cache": {
+			// if a cached calendar was passed, don't fetch the URL or return
+			// the cache
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			inputBody: []byte(url.Values{
+				"cal": []string{"webcal://CALURL"},
+			}.Encode()),
+			inputCache: &cache.Webcal{
+				URL: "webcal://CALURL",
+				Calendar: func() *ics.Calendar {
+					c, err := ics.ParseCalendar(bytes.NewReader(fixtures.Events11Sept2024))
+					require.NoError(t, err)
+					return c
+				}(),
+			},
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
+				server.WithUnsafeClient(&http.Client{}),
+			},
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Month{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Target: time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Now:    time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Days:   daysSept2024WithEvents,
+				URL:    "webcal://example.com/?cal=webcal%3A%2F%2FCALURL",
+			},
+		},
+		"htmx_calendar_with_events_and_old_cache": {
+			// if a cached calendar was passed that doesn't match the URL, do
+			// fetch the URL and the new cache
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			inputBody: []byte(url.Values{
+				"cal": []string{"webcal://CALURL"},
+			}.Encode()),
+			inputCache: &cache.Webcal{
+				URL: "webcal://boring.co/events",
+				Calendar: func() *ics.Calendar {
+					c, err := ics.ParseCalendar(bytes.NewReader(fixtures.Events11Sept2024))
+					require.NoError(t, err)
+					return c
+				}(),
+			},
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
+				server.WithUnsafeClient(&http.Client{}),
+			},
+			upstreamServer:       mockWebcalServer(http.StatusOK, nil, fixtures.Events11Sept2024),
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Month{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Target: time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Now:    time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Days:   daysSept2024WithEvents,
+				Cache: &cache.Webcal{
+					URL: "webcal://CALURL",
+					Calendar: func() *ics.Calendar {
+						c, err := ics.ParseCalendar(bytes.NewReader(fixtures.Events11Sept2024))
+						require.NoError(t, err)
+						return c
+					}(),
+				},
+				URL: "webcal://example.com/?cal=webcal%3A%2F%2FCALURL",
+			},
+		},
+		"htmx_calendar_no_calendar_requested_and_old_cache": {
+			// if a cached calendar was passed but no calendar was requested,
+			// don't fetch ant URL, and don't set a cache. THe existing cache
+			// may remain.
+			inputMethod: http.MethodPost,
+			inputHeaders: map[string]string{
+				"X-HX-Host":    "example.com",
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			inputBody: []byte(url.Values{
+				"cal": []string{""},
+			}.Encode()),
+			inputCache: &cache.Webcal{
+				URL: "webcal://boring.co/events",
+				Calendar: func() *ics.Calendar {
+					c, err := ics.ParseCalendar(bytes.NewReader(fixtures.Events11Sept2024))
+					require.NoError(t, err)
+					return c
+				}(),
+			},
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time { return time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC) }),
+				server.WithUnsafeClient(&http.Client{}),
+			},
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "calendar",
+			expectedTemplateObj: server.Month{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Target: time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Now:    time.Date(2024, 9, 11, 23, 0, 0, 0, time.UTC),
+				Days:   daysSeptember2024In(time.UTC),
+			},
+		},
+		"add_matcher_group": {
+			inputMethod: http.MethodGet,
+			inputQuery:  "matcher",
+			inputHeaders: map[string]string{
+				"X-HX-Host":       "example.com",
+				"X-Forwarded-URI": "/webcal-proxy",
+			},
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "template-matcher-group",
+			expectedTemplateObj: server.View{
+				ArgHost:      "example.com",
+				ArgProxyPath: "/webcal-proxy",
+			},
+		},
+		"remove_matcher_group": {
+			inputMethod: http.MethodDelete,
+			inputQuery:  "matcher",
+			inputHeaders: map[string]string{
+				"X-HX-Host":       "example.com",
+				"X-Forwarded-URI": "/webcal-proxy",
+			},
+			expectedStatus: http.StatusOK,
+			expectedBody:   ptrTo([]byte(nil)),
+			expectedHeaders: map[string]string{
+				"HX-Trigger-After-Settle": `{"input":{"target":"#trigger-submit"}}`,
+			},
+		},
+		"pre_fills_the_form_from_url": {
+			inputMethod: http.MethodGet,
+			inputQuery:  "?cal=webcal%3A%2F%2Fyolo.com%2Fevents.ics&inc=SUMMARY%3Dinteresting&inc=SUMMARY%3Dmiddling&exc=DESCRIPTION%3Dboring&mrg=true",
+			inputHeaders: map[string]string{
+				"Accept": "text/html",
+			},
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "index",
+			expectedTemplateObj: server.Index{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Options: server.Options{
+					URL: "webcal://yolo.com/events.ics",
+					Includes: []server.Matcher{
+						{Property: "SUMMARY", Regex: "interesting"},
+						{Property: "SUMMARY", Regex: "middling"},
+					},
+					Excludes: []server.Matcher{
+						{Property: "DESCRIPTION", Regex: "boring"},
+					},
+					Merge: true,
+				},
+			},
+		},
+		"fails_to_pre_fill_the_form": {
+			inputMethod: http.MethodGet,
+			inputQuery:  "?cal=webcal%3A%2F%2Fyolo.com%2Fevents.ics&mrg=yes",
+			inputHeaders: map[string]string{
+				"Accept": "text/html",
+			},
+			expectedStatus:       http.StatusOK,
+			expectedTemplateName: "index",
+			expectedTemplateObj: server.Index{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Error: `Bad argument "yes" for "mrg", should be boolean. Enter your webcal URL.`,
+			},
+		},
+		"htmx_date_picker": {
+			inputMethod:          http.MethodGet,
+			inputQuery:           "date-picker-month?target=2024-08-20T21%3A43%3A23%2B05%3A00&today=2024-09-20T21%3A43%3A23%2B05%3A00",
+			expectedStatus:       http.StatusOK,
+			expectedHeaders:      map[string]string{"HX-Trigger-After-Settle": `{"input":{"target":"#trigger-submit"}}`},
+			expectedTemplateName: "date-picker-month",
+			expectedTemplateObj: server.Picker{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Target: time.Date(2024, 8, 20, 21, 43, 23, 0, time.FixedZone("", 5*3600)),
+				Now:    time.Date(2024, 9, 20, 21, 43, 23, 0, time.FixedZone("", 5*3600)),
+			},
+		},
+		"htmx_date_picker_bad_target": {
+			inputMethod:          http.MethodGet,
+			inputQuery:           "date-picker-month?target=202dfgdfg2B05%3A00&today=2024-09-20T21%3A43%3A23%2B05%3A00",
+			expectedStatus:       http.StatusOK,
+			expectedHeaders:      map[string]string{"HX-Trigger-After-Settle": `{"input":{"target":"#trigger-submit"}}`},
+			expectedTemplateName: "date-picker-month",
+			expectedTemplateObj: server.Picker{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Target: time.Date(2024, 9, 20, 21, 43, 23, 0, time.FixedZone("", 5*3600)),
+				Now:    time.Date(2024, 9, 20, 21, 43, 23, 0, time.FixedZone("", 5*3600)),
+			},
+		},
+		"htmx_date_picker_bad_today": {
+			inputMethod: http.MethodGet,
+			inputQuery:  "date-picker-month?target=2024-08-20T21%3A43%3A23%2B05%3A00&today=2024dfgdfgdfgfg3%2B05%3A00",
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time {
+					return time.Date(2024, 9, 20, 23, 28, 0, 0, time.UTC)
+				}),
+			},
+			expectedStatus:       http.StatusOK,
+			expectedHeaders:      map[string]string{"HX-Trigger-After-Settle": `{"input":{"target":"#trigger-submit"}}`},
+			expectedTemplateName: "date-picker-month",
+			expectedTemplateObj: server.Picker{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Target: time.Date(2024, 8, 20, 21, 43, 23, 0, time.FixedZone("", 5*3600)),
+				Now:    time.Date(2024, 9, 20, 23, 28, 0, 0, time.UTC),
+			},
+		},
+		"htmx_date_picker_no_query": {
+			inputMethod: http.MethodGet,
+			inputQuery:  "date-picker-month",
+			serverOpts: []server.Opt{
+				server.WithClock(func() time.Time {
+					return time.Date(2024, 9, 20, 23, 28, 0, 0, time.UTC)
+				}),
+			},
+			expectedStatus:       http.StatusOK,
+			expectedHeaders:      map[string]string{"HX-Trigger-After-Settle": `{"input":{"target":"#trigger-submit"}}`},
+			expectedTemplateName: "date-picker-month",
+			expectedTemplateObj: server.Picker{
+				View: server.View{
+					ArgHost: "example.com",
+				},
+				Target: time.Date(2024, 9, 20, 23, 28, 0, 0, time.UTC),
+				Now:    time.Date(2024, 9, 20, 23, 28, 0, 0, time.UTC),
+			},
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if test.tryRedirect {
-					http.Redirect(w, r, "192.168.0.1", http.StatusMovedPermanently)
-					return
-				}
-				w.Header().Set("Content-Type", "text/calendar")
-				_, _ = w.Write(test.source)
-			}))
-			defer ts.Close()
+			t.Parallel()
 
-			tsURL, err := url.Parse(ts.URL)
+			upstreamServer := httptest.NewServer(test.upstreamServer)
+			defer upstreamServer.Close()
+
+			upstreamURL, err := url.Parse(upstreamServer.URL)
 			require.NoError(t, err)
-			url := "http://localhost" + strings.Replace(test.options, "CALURL", tsURL.Host, 1)
-			t.Log(url)
-			r := httptest.NewRequest("GET", url, nil)
+
+			inputURL := "/" + strings.Replace(test.inputQuery, "CALURL", upstreamURL.Host, -1)
+			t.Log(inputURL)
+			if calendar, ok := test.expectedTemplateObj.(server.Month); ok {
+				if calendar.Cache != nil {
+					calendar.Cache.URL = strings.Replace(calendar.Cache.URL, "CALURL", upstreamURL.Host, -1)
+				}
+				calendar.URL = strings.Replace(calendar.URL, "CALURL", url.QueryEscape(upstreamURL.Host), -1)
+				test.expectedTemplateObj = calendar
+			}
+			if test.inputCache != nil {
+				test.inputCache.URL = strings.Replace(test.inputCache.URL, "CALURL", upstreamURL.Host, -1)
+				q, err := url.ParseQuery(string(test.inputBody))
+				require.NoError(t, err, "test.inputCache must only be used when test.inputBody is application/x-www-form-urlencoded")
+				cache, err := test.inputCache.Encode()
+				require.NoError(t, err)
+				q.Set("ical-cache", cache)
+				test.inputBody = []byte(q.Encode())
+			}
+			r := httptest.NewRequest(test.inputMethod, inputURL, bytes.NewReader(bytes.Replace(test.inputBody, []byte("CALURL"), []byte(upstreamURL.Host), -1)))
+
+			for k, v := range test.inputHeaders {
+				r.Header.Set(k, v)
+			}
 			w := httptest.NewRecorder()
 
-			defer func(prev bool) { allowLoopback = prev }(allowLoopback)
-			allowLoopback = test.allowLoopback
+			tpl := &mockTemplate{}
+			tpl.Test(t)
+			defer tpl.AssertExpectations(t)
+			if test.expectedTemplateName != "" {
+				rend := &mockRender{}
+				rend.Test(t)
+				defer rend.AssertExpectations(t)
+				rend.On("Render", mock.Anything).Return(nil).Once()
+				tpl.On("Instance", test.expectedTemplateName, test.expectedTemplateObj).Return(rend).Once()
+			}
 
-			s := Server{}
-			s.HandleWebcal(w, r)
+			router := gin.New()
+			server.New(router, test.serverOpts...)
+			router.HTMLRender = tpl
+			router.ServeHTTP(w, r)
 
-			assert.Equal(t, test.wantStatus, w.Code)
-			if test.want != nil {
-				wantCal, err := ics.ParseCalendar(bytes.NewReader(test.want))
+			assert.Equal(t, test.expectedStatus, w.Code)
+			for k, v := range test.expectedHeaders {
+				require.Equal(t, v, w.Header().Get(k))
+			}
+			if test.expectedCalendar != nil {
+				expectedCalendar, err := ics.ParseCalendar(bytes.NewReader(test.expectedCalendar))
 				require.NoError(t, err)
-				assert.Equal(t, []byte(wantCal.Serialize()), w.Body.Bytes())
 				assert.Equal(t, "text/calendar", w.Header().Get("Content-Type"))
-				t.Logf("want:\n%s", wantCal.Serialize())
-				t.Logf("got:\n%s", w.Body.String())
+				assert.Equal(t, []byte(expectedCalendar.Serialize()), w.Body.Bytes())
+				t.Logf("expected:\n%s", expectedCalendar.Serialize())
+				t.Logf("actual:\n%s", w.Body.String())
+			}
+			if test.expectedBody != nil {
+				require.Equal(t, *test.expectedBody, w.Body.Bytes())
 			}
 		})
 	}
+}
+
+func mockWebcalServer(code int, headers map[string]string, calendar []byte) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/calendar")
+		for k, v := range headers {
+			w.Header().Set(k, v)
+		}
+		w.WriteHeader(code)
+		_, _ = w.Write(calendar)
+	}
+}
+
+type mockTemplate struct {
+	mock.Mock
+}
+
+func (m *mockTemplate) Instance(template string, data any) render.Render {
+	return m.Called(template, data).Get(0).(render.Render)
+}
+
+type mockRender struct {
+	mock.Mock
+}
+
+func (m *mockRender) Render(w http.ResponseWriter) error {
+	return m.Called(w).Error(0)
+}
+
+func (m *mockRender) WriteContentType(w http.ResponseWriter) {
+	m.Called(w)
+}
+
+func ptrTo[T any](t T) *T {
+	return &t
 }

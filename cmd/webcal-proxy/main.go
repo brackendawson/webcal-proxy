@@ -7,26 +7,27 @@ import (
 	"os"
 
 	server "github.com/brackendawson/webcal-proxy"
+	"github.com/gin-contrib/secure"
+	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
 
 func main() {
 	var (
-		addr     string
-		logFile  string
-		logLevel string
+		addr         string
+		logFile      string
+		logLevel     logrus.Level
+		secureConfig secure.Config = secure.DefaultConfig()
+		maxConns     int
 	)
-	flag.StringVar(&logFile, "logfile", "", "File to log to")
-	flag.StringVar(&logLevel, "loglevel", "info", "log level")
-	flag.StringVar(&addr, "addr", ":80", "local address:port to bind to")
+	flag.StringVar(&logFile, "log-file", "", "File to log to")
+	flag.TextVar(&logLevel, "log-level", logrus.InfoLevel, "log level")
+	flag.BoolVar(&secureConfig.IsDevelopment, "dev", false, "disables security policies that prevent http://localhost from working")
+	flag.StringVar(&addr, "addr", ":8080", "local address:port to bind to")
+	flag.IntVar(&maxConns, "max-conns", 8, "maximum total upstream connections")
 	flag.Parse()
 
-	level, err := logrus.ParseLevel(logLevel)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Invalid log level")
-		os.Exit(1)
-	}
-	logrus.SetLevel(level)
+	logrus.SetLevel(logLevel)
 
 	if logFile != "" {
 		logFH, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -38,8 +39,18 @@ func main() {
 		logrus.SetOutput(logFH)
 	}
 
-	s := server.Server{}
+	gin.SetMode(gin.ReleaseMode)
+	r := gin.New()
+	r.RedirectTrailingSlash = false // be permissie, gin is not aware of Proxy Path
+	r.RedirectFixedPath = true
+	secureConfig.SSLRedirect = false                                                                    // TLS should be handled by reverse proxy
+	secureConfig.ContentSecurityPolicy = "default-src 'self'; script-src 'self'; img-src 'self' data:;" // Bootstrap uses data: images
+	r.Use(secure.New(secureConfig))
+	server.New(r, server.MaxConns(maxConns))
 
-	http.HandleFunc("/", s.HandleWebcal)
-	logrus.Error(http.ListenAndServe(addr, nil))
+	if secureConfig.IsDevelopment {
+		logrus.Warn("In development mode, some security policies disabled to allow http://localhost/ to work.")
+	}
+	logrus.Info("Begin listener...")
+	logrus.Fatal(http.ListenAndServe(addr, r))
 }

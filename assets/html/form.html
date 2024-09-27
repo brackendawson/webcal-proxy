@@ -1,0 +1,183 @@
+{{ define "_form" }}
+<form id="config-form"
+    data-hx-post="{{ .ProxyPath }}/"
+    data-hx-headers='{"X-HX-Host": "{{ .Host }}"}'
+    data-hx-target="#calendar"
+    data-hx-swap="outerHTML"
+    data-hx-trigger="
+        {{ if not .Error }}
+            load delay:1s,
+        {{ end }}
+        input from:#trigger-submit,
+        input delay:1s from:#input-url,
+        change from:#input-mrg"
+        >
+    <div class="input-group">
+        <input id="input-url"
+            type="text"
+            name="cal"
+            class="form-control"
+            placeholder="Webcal URL"
+            value="{{ .Options.URL }}"
+        >
+    </div>
+    {{ if and (eq (len .Options.Includes) 0) (eq (len .Options.Excludes) 0) }}
+        {{ template "template-matcher-group" . }}
+    {{ else }}
+        {{ $outer := . }}
+        {{ range .Options.Includes }}
+            {{ template "_matcher-group" (dict "Operator" "inc" "Arg" . "ProxyPath" $outer.ProxyPath "Host" $outer.Host) }}
+        {{ end }}
+        {{ range .Options.Excludes }}
+            {{ template "_matcher-group" (dict "Operator" "exc" "Arg" . "ProxyPath" $outer.ProxyPath "Host" $outer.Host) }}
+        {{ end }}
+    {{ end }}
+    <div class="form-check">
+        <input id="input-mrg" name="mrg" class="form-check-input" type="checkbox" value="true" {{ with .Options.Merge }}checked{{ end }}>
+        <label class="form-check-label" for="input-mrg">Merge overlapping events</label>
+    </div>
+    <input id="user-tz" name="user-tz" type="hidden">
+    <input id="ical-cache" name="ical-cache" type="hidden">
+    <input id="trigger-submit" type="hidden">
+    <div id="loading" class="alert alert-primary" role="alert">Loading...</div>      
+    {{ with .Error }}
+        {{ template "_error" . }}
+    {{ else }}
+        {{ template "_placeholder-url" . }}
+    {{ end }}
+    <div id="date-picker"></div>
+</form>
+{{ end }}
+
+{{ define "_error" }}
+<div id="notification" class="alert alert-danger error" data-hx-swap-oob="true">{{ . }}</div>   
+{{ end }}
+
+{{ define "_placeholder-url" }}
+<div id="notification" class="alert alert-info no-url" data-hx-swap-oob="true">Enter a webcal URL to begin.</div>
+{{ end }}
+
+{{ define "_url" }}
+<div id="notification" class="input-group url" data-hx-swap-oob="true">
+    <span id="url-label" class="input-group-text url">Your URL</span>
+    <input type="text" id="url-box" class="form-control url" value="{{ . }}" readonly>
+    <button id="url-copy" class="btn btn-outline-secondary url" type="button"><i id="url-copy-icon" class="fa-regular fa-copy"></i> Copy</button>
+</div>
+{{ end }}
+
+{{ define "_matcher-group" }}
+<div class="input-group matcher-group">
+    <select class="form-select property-select matcher matcher-property">
+        <option value="SUMMARY"{{ if eq .Arg.Property "SUMMARY" }} selected{{ end }}>Summary</option>
+        <option value="DESCRIPTION"{{ if eq .Arg.Property "DESCRIPTION" }} selected{{ end }}>Description</option>
+        <option value="LOCATION"{{ if eq .Arg.Property "LOCATION" }} selected{{ end }}>Location</option>
+        <option disabled>-</option>
+        <option value="ATTACH"{{ if eq .Arg.Property "ATTACH" }} selected{{ end }}>Attachment</option>
+        <option value="CATEGORIES"{{ if eq .Arg.Property "CATEGORIES" }} selected{{ end }}>Categories</option>
+        <option value="CLASS"{{ if eq .Arg.Property "CLASS" }} selected{{ end }}>Class</option>
+        <option value="COMMENT"{{ if eq .Arg.Property "COMMENT" }} selected{{ end }}>Comment</option>
+        <option value="RESOURCES"{{ if eq .Arg.Property "RESOURCES" }} selected{{ end }}>Resources</option>
+        <option value="STATUS"{{ if eq .Arg.Property "STATUS" }} selected{{ end }}>Status</option>
+        <option value="TRANSP"{{ if eq .Arg.Property "TRANSP" }} selected{{ end }}>Time Transparency</option>
+    </select>
+    <select class="form-select match-select matcher matcher-operator">
+        <option value="inc"{{ if eq .Operator "inc" }} selected{{ end }}>=~</option>
+        <option value="exc"{{ if eq .Operator "exc" }} selected{{ end }}>!~</option>
+    </select>
+    <input type="text" class="form-control matcher matcher-value" placeholder="regex" value="{{ .Arg.Regex }}">
+    <input class="matcher-arg" value="" type="hidden">
+    <button
+        class="btn btn-outline-secondary del-matcher"
+        type="submit"
+        title="remove this matcher"
+        data-hx-target="closest .matcher-group"
+        data-hx-delete="{{ .ProxyPath }}/matcher"
+        data-hx-swap="delete"
+        data-hx-params="none"
+        ><i class="fa-solid fa-trash"></i></button>
+    <button 
+        class="btn btn-outline-secondary add-matcher"
+        type="button"
+        title="add another matcher"
+        data-hx-get="{{ .ProxyPath }}/matcher"
+        data-hx-headers='{"X-HX-Host": "{{ .Host }}"}'
+        data-hx-target="closest .matcher-group"
+        data-hx-swap="afterend"
+        data-hx-trigger="click"
+        data-hx-params="none"
+        ><i class="fa-solid fa-plus"></i></button>
+    </div>
+{{ end }}
+
+{{ define "template-matcher-group" }}
+    {{ template "_matcher-group" (dict "Operator" "mrg" "Arg" dict "ProxyPath" .ProxyPath "host" .Host) }}
+{{ end }}
+
+{{ define "date-picker-month" }}
+{{ $rfc3339 := "2006-01-02T15:04:05Z07:00" }}
+<div id="date-picker"
+    class="input-group date-picker-month"
+    data-hx-swap-oob="true"
+>
+    <button id="date-pick-prev-month"
+        class="btn btn-outline-secondary"
+        type="button"
+        data-hx-get="{{ .ProxyPath }}/date-picker-month"
+        data-hx-headers='{"X-HX-Host": "{{ .Host }}"}'
+        data-hx-vals='{"target":"{{ (.Target.AddDate 0 -1 0).Format $rfc3339 }}","today":"{{ .Now.Format $rfc3339 }}"}'
+        data-hx-target="#date-picker"
+        data-hx-swap="none"
+        ></button>
+        <button id="date-pick-today"
+        class="btn btn-outline-secondary"
+        type="button"
+        data-hx-get="{{ .ProxyPath }}/date-picker-month"
+        data-hx-headers='{"X-HX-Host": "{{ .Host }}"}'
+        data-hx-vals='{"target":"{{ .Now.Format $rfc3339 }}","today":"{{ .Now.Format $rfc3339 }}"}'
+        data-hx-target="#date-picker"
+        data-hx-swap="none"
+    ><span>Today</span></button>
+    <select id="date-pick-month" name="target-month" class="form-select" id="inputGroupSelect01">
+        <option value="1"{{ if eq .Target.Month 1 }} selected{{ end }}>January</option>
+        <option value="2"{{ if eq .Target.Month 2 }} selected{{ end }}>February</option>
+        <option value="3"{{ if eq .Target.Month 3 }} selected{{ end }}>March</option>
+        <option value="4"{{ if eq .Target.Month 4 }} selected{{ end }}>April</option>
+        <option value="5"{{ if eq .Target.Month 5 }} selected{{ end }}>May</option>
+        <option value="6"{{ if eq .Target.Month 6 }} selected{{ end }}>June</option>
+        <option value="7"{{ if eq .Target.Month 7 }} selected{{ end }}>July</option>
+        <option value="8"{{ if eq .Target.Month 8 }} selected{{ end }}>August</option>
+        <option value="9"{{ if eq .Target.Month 9 }} selected{{ end }}>September</option>
+        <option value="10"{{ if eq .Target.Month 10 }} selected{{ end }}>October</option>
+        <option value="11"{{ if eq .Target.Month 11 }} selected{{ end }}>November</option>
+        <option value="12"{{ if eq .Target.Month 12 }} selected{{ end }}>December</option>
+    </select>
+    <button id="date-pick-prev-year" 
+        class="btn btn-outline-secondary"
+        type="button"
+        data-hx-get="{{ .ProxyPath }}/date-picker-month"
+        data-hx-headers='{"X-HX-Host": "{{ .Host }}"}'
+        data-hx-vals='{"target":"{{ (.Target.AddDate -1 0 0).Format $rfc3339 }}","today":"{{ .Now.Format $rfc3339 }}"}'
+        data-hx-target="#date-picker"
+        data-hx-swap="none"
+    ></button>
+    <input id="date-pick-year" name="target-year" type="text" class="form-control" value="{{ .Target.Year }}">
+    <button id="date-pick-next-year"
+        class="btn btn-outline-secondary"
+        type="button"
+        data-hx-get="{{ .ProxyPath }}/date-picker-month"
+        data-hx-headers='{"X-HX-Host": "{{ .Host }}"}'
+        data-hx-vals='{"target":"{{ (.Target.AddDate 1 0 0).Format $rfc3339 }}","today":"{{ .Now.Format $rfc3339 }}"}'
+        data-hx-target="#date-picker"
+        data-hx-swap="none"
+    ></button>
+    <button id="date-pick-next-month"
+        class="btn btn-outline-secondary"
+        type="button"
+        data-hx-get="{{ .ProxyPath }}/date-picker-month"
+        data-hx-headers='{"X-HX-Host": "{{ .Host }}"}'
+        data-hx-vals='{"target":"{{ (.Target.AddDate 0 1 0).Format $rfc3339 }}","today":"{{ .Now.Format $rfc3339 }}"}'
+        data-hx-target="#date-picker"
+        data-hx-swap="none"
+    ></button>
+</div>
+{{ end }}

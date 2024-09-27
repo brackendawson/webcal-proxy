@@ -1,17 +1,39 @@
 [![Go workflow](https://github.com/brackendawson/webcal-proxy/actions/workflows/go.yml/badge.svg)](https://github.com/brackendawson/webcal-proxy/actions/workflows/go.yml)
 
-# webcal-proxy
-A simple server to proxy and filter webcal links.
+# ![wp logo](assets/img/favicon.ico) webcal-proxy
+A simple server to filter events from webcal feeds.
+
+[![Try it out](doc/try-it-out.png)](https://bracken.cc/webcal-proxy)
 
 ## Usage
 ### Server
+#### Arguments
 Usage of webcal-proxy:
 * -addr string
-local address:port to bind to (default ":80")
+local address:port to bind to (default ":8080")
 * -logfile string
 File to log to
-* -loglevel string
+* -log-level string
 log level (default "info")
+* -max-conns maximum total upstream connections
+* -dev disables security policies that prevent http://localhost from working
+
+#### TLS
+The server should be run behind a reverse proxy which terminates TLS because the webcal:// protocol requires valid TLS. The web interface will also not function on http without the -dev argument, even then some things will not work, such as clipboard interaction.
+
+#### Proxy Path
+If the reverse proxy uses a path then provide it in the `X-Forwarded-URI` header. Example nginx config:
+```nginx
+location /webcal-proxy/ {
+    proxy_pass          http://127.0.0.1:8080;
+    rewrite             ^/webcal-proxy/(.*)$ /$1 break;
+    proxy_set_header    Host    $host;
+    proxy_set_header    X-Forwarded-URI /webcal-proxy;
+    proxy_set_header    X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_redirect      off;
+    proxy_buffering     off;
+}
+```
 
 ### Client
 Enter the URL into your webcal client:
@@ -27,5 +49,5 @@ Where:
 
 eg:
 ```
-webcal://example.com/webcal-proxy?cal=webcal://example.com/my/calendar&exc=SUMMARY=Boring%20Events
+webcal://webcal-proxy.example.com/webcal-proxy?cal=webcal://example.com/my/calendar&exc=SUMMARY=Boring%20Events
 ```

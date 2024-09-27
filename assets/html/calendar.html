@@ -1,0 +1,73 @@
+{{ define "calendar" }}
+{{ $timeFmtLong := "Monday 2 January 2006 15:04 MST" }}
+{{ $now := .Now }}
+{{ $target := .Target }}
+<div id="calendar">
+    <div class="calendar-dow">Monday</div>
+    <div class="calendar-dow">Tuesday</div>
+    <div class="calendar-dow">Wednesday</div>
+    <div class="calendar-dow">Thursday</div>
+    <div class="calendar-dow">Friday</div>
+    <div class="calendar-dow">Saturday</div>
+    <div class="calendar-dow">Sunday</div>
+    {{ range $i, $day := .Days }}
+        <div class="day day-{{ $day.Weekday }}{{ if $day.SameDate $now }} day-today{{ end }}{{ if ne $day.Month $target.Month }} day-spill{{ end }}">
+            <div class="day-head">{{ $day.Day }}</div>
+            {{ range $j, $event := $day.Events }}
+                <a href="" data-bs-toggle="modal" data-bs-target="#event-modal-{{ $i }}-{{ $j }}">
+                    <div class="day-event">
+                        {{ if $day.SameDate $event.StartTime }}
+                            <span class="event-start-time">{{ $event.StartTime.Format "15:04" }}</span>
+                        {{ else }}
+                            <span class="event-start-time event-start-time-continued"></span>
+                        {{ end }}
+                        {{ if not $event.EndTime.IsZero }}
+                            <span class="event-end-time">{{ $event.EndTime.Format "15:04" }}</span>
+                        {{ end }}
+                        <span class="event-summary">{{ $event.Summary }}</span>
+                        <span class="event-location">{{ $event.Location }}</span>
+                        <span class="event-description">{{ $event.Description }}</span>
+                    </div>
+                </a>
+
+                <div class="modal" id="event-modal-{{ $i }}-{{ $j }}" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h2 class="modal-title">{{ $event.Summary }}</h2>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="event-modal-start-time">{{ $event.StartTime.Format $timeFmtLong }}</p>
+                                {{ if not $event.EndTime.IsZero }}
+                                    <p class="event-modal-end-time">{{ $event.EndTime.Format $timeFmtLong }}</p>
+                                {{ end }}
+                                {{ with $event.Location }}
+                                    <p class="event-modal-location">{{ . }}</p>
+                                {{ end }}
+                                {{ with $event.Description }}
+                                    <p class="event-modal-description">{{ . }}</p>
+                                {{ end }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {{ end }}
+        </div>          
+    {{ end }}
+</div>
+{{ if .Cache }}
+    <input id="ical-cache" name="ical-cache" data-hx-swap-oob="true" value="{{ .Cache.Encode }}" type="hidden">
+{{ end }}
+{{ $url := .URL }}
+{{ with .Error }}
+    {{ template "_error" . }}
+{{ else }}
+    {{ with $url }}
+        {{ template "_url" . }}
+    {{ else }}
+        {{ template "_placeholder-url" . }}
+    {{ end }}
+{{ end }}
+{{ template "date-picker-month" . }}
+{{ end }}
