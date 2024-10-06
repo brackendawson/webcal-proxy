@@ -146,8 +146,8 @@ footer a {
     font-style: italic;
 }
 
-.day-saturday .day-head,
-.day-sunday .day-head {
+.day-Saturday .day-head,
+.day-Sunday .day-head {
     background: var(--med-grey);
 }
 
