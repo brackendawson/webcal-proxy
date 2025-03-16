@@ -220,6 +220,10 @@ footer a {
     display: none;
 }
 
+#submit-button {
+    display: none;
+}
+
 #date-picker {
     width: auto;
     justify-content: center;

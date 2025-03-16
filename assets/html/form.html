@@ -10,8 +10,12 @@
         {{ end }}
         input from:#trigger-submit,
         input delay:1s from:#input-url,
-        change from:#input-mrg"
+        change from:#input-mrg,
+        click from:#submit-button"
         >
+    <!-- This submit button prevents other buttons in the form from being
+     treated as the sbubmit button -->
+    <input type="submit" id="submit-button" value="Submit"></input>
     <div class="input-group">
         <input id="input-url"
             type="text"
