@@ -7,7 +7,7 @@ require (
 	github.com/gin-contrib/secure v1.1.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/hashicorp/go-uuid v1.0.3
-	github.com/sirupsen/logrus v1.8.1
+	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.11.1
 )
 
