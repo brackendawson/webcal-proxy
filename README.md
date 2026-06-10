@@ -33,6 +33,11 @@ location /webcal-proxy/ {
 }
 ```
 
+#### Proxy Security
+This server should be isolated at a network-level from egress to your infrastructure's private network, otherwise an attacker may be able to gain access to private services.
+
+This server's HTTP client which fetches requested calendars does reject connection attempts to non-unicast and private addresses, but not other public unicast address ranges (including RFC 6598) which cloud providers may re-purpose for private networks.
+
 ### Client
 Enter the URL into your webcal client:
 ```
